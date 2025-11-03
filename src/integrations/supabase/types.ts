@@ -14,16 +14,679 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      acionamento_mock: {
+        Row: {
+          created_at: string
+          data: string
+          id: string
+          tipo: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          id?: string
+          tipo: string
+          valor: number
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          id?: string
+          tipo?: string
+          valor?: number
+        }
+        Relationships: []
+      }
+      ai_faq: {
+        Row: {
+          active: boolean
+          answer: string
+          category: string
+          created_at: string
+          id: string
+          question: string
+          updated_at: string
+          usage_count: number
+        }
+        Insert: {
+          active?: boolean
+          answer: string
+          category: string
+          created_at?: string
+          id?: string
+          question: string
+          updated_at?: string
+          usage_count?: number
+        }
+        Update: {
+          active?: boolean
+          answer?: string
+          category?: string
+          created_at?: string
+          id?: string
+          question?: string
+          updated_at?: string
+          usage_count?: number
+        }
+        Relationships: []
+      }
+      delivery_receipts: {
+        Row: {
+          created_at: string
+          delivery_date: string | null
+          delivery_time: string | null
+          id: string
+          image_url: string
+          observations: string | null
+          ocr_raw_data: Json | null
+          receiver_name: string | null
+          receiver_signature: string | null
+          shipment_id: string | null
+          updated_at: string
+          verified: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          delivery_date?: string | null
+          delivery_time?: string | null
+          id?: string
+          image_url: string
+          observations?: string | null
+          ocr_raw_data?: Json | null
+          receiver_name?: string | null
+          receiver_signature?: string | null
+          shipment_id?: string | null
+          updated_at?: string
+          verified?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          delivery_date?: string | null
+          delivery_time?: string | null
+          id?: string
+          image_url?: string
+          observations?: string | null
+          ocr_raw_data?: Json | null
+          receiver_name?: string | null
+          receiver_signature?: string | null
+          shipment_id?: string | null
+          updated_at?: string
+          verified?: boolean | null
+        }
+        Relationships: []
+      }
+      driver_documents: {
+        Row: {
+          created_at: string
+          document_number: string | null
+          document_type: string
+          driver_id: string
+          expiry_date: string | null
+          id: string
+          image_url: string
+          issue_date: string | null
+          issuing_agency: string | null
+          ocr_raw_data: Json | null
+          updated_at: string
+          verified: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          document_number?: string | null
+          document_type: string
+          driver_id: string
+          expiry_date?: string | null
+          id?: string
+          image_url: string
+          issue_date?: string | null
+          issuing_agency?: string | null
+          ocr_raw_data?: Json | null
+          updated_at?: string
+          verified?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          document_number?: string | null
+          document_type?: string
+          driver_id?: string
+          expiry_date?: string | null
+          id?: string
+          image_url?: string
+          issue_date?: string | null
+          issuing_agency?: string | null
+          ocr_raw_data?: Json | null
+          updated_at?: string
+          verified?: boolean | null
+        }
+        Relationships: []
+      }
+      driver_field_config: {
+        Row: {
+          created_at: string
+          display_name: string
+          display_order: number | null
+          field_name: string
+          field_type: string | null
+          id: string
+          updated_at: string
+          visible_in_card: boolean | null
+          visible_in_table: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          display_order?: number | null
+          field_name: string
+          field_type?: string | null
+          id?: string
+          updated_at?: string
+          visible_in_card?: boolean | null
+          visible_in_table?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          display_order?: number | null
+          field_name?: string
+          field_type?: string | null
+          id?: string
+          updated_at?: string
+          visible_in_card?: boolean | null
+          visible_in_table?: boolean | null
+        }
+        Relationships: []
+      }
+      drivers: {
+        Row: {
+          availability_status: string | null
+          city: string | null
+          cpf: string | null
+          created_at: string
+          current_location: string | null
+          email: string | null
+          id: string
+          last_freight_date: string | null
+          last_update: string | null
+          metadata: Json | null
+          name: string
+          phone: string | null
+          registered_at: string | null
+          state: string | null
+          status: string | null
+          trailer_plate_1: string | null
+          trailer_plate_2: string | null
+          trailer_plate_3: string | null
+          truck_plate: string | null
+          updated_at: string
+          vehicle_type: string | null
+        }
+        Insert: {
+          availability_status?: string | null
+          city?: string | null
+          cpf?: string | null
+          created_at?: string
+          current_location?: string | null
+          email?: string | null
+          id?: string
+          last_freight_date?: string | null
+          last_update?: string | null
+          metadata?: Json | null
+          name: string
+          phone?: string | null
+          registered_at?: string | null
+          state?: string | null
+          status?: string | null
+          trailer_plate_1?: string | null
+          trailer_plate_2?: string | null
+          trailer_plate_3?: string | null
+          truck_plate?: string | null
+          updated_at?: string
+          vehicle_type?: string | null
+        }
+        Update: {
+          availability_status?: string | null
+          city?: string | null
+          cpf?: string | null
+          created_at?: string
+          current_location?: string | null
+          email?: string | null
+          id?: string
+          last_freight_date?: string | null
+          last_update?: string | null
+          metadata?: Json | null
+          name?: string
+          phone?: string | null
+          registered_at?: string | null
+          state?: string | null
+          status?: string | null
+          trailer_plate_1?: string | null
+          trailer_plate_2?: string | null
+          trailer_plate_3?: string | null
+          truck_plate?: string | null
+          updated_at?: string
+          vehicle_type?: string | null
+        }
+        Relationships: []
+      }
+      embarques: {
+        Row: {
+          actual_arrival_time: string | null
+          cargo_type: string | null
+          client_name: string | null
+          created_at: string
+          current_latitude: number | null
+          current_longitude: number | null
+          delivery_date: string | null
+          delivery_window_end: string | null
+          delivery_window_start: string | null
+          destination: string | null
+          driver_id: string | null
+          driver_value: number | null
+          email_content: string | null
+          email_id: string | null
+          id: string
+          last_location_update: string | null
+          manual_review_completed: boolean | null
+          needs_manual_review: boolean | null
+          origin: string
+          pickup_date: string | null
+          rejected_drivers_count: number | null
+          route_states: string | null
+          status: string
+          total_value: number | null
+          updated_at: string
+          weight: number | null
+        }
+        Insert: {
+          actual_arrival_time?: string | null
+          cargo_type?: string | null
+          client_name?: string | null
+          created_at?: string
+          current_latitude?: number | null
+          current_longitude?: number | null
+          delivery_date?: string | null
+          delivery_window_end?: string | null
+          delivery_window_start?: string | null
+          destination?: string | null
+          driver_id?: string | null
+          driver_value?: number | null
+          email_content?: string | null
+          email_id?: string | null
+          id?: string
+          last_location_update?: string | null
+          manual_review_completed?: boolean | null
+          needs_manual_review?: boolean | null
+          origin: string
+          pickup_date?: string | null
+          rejected_drivers_count?: number | null
+          route_states?: string | null
+          status?: string
+          total_value?: number | null
+          updated_at?: string
+          weight?: number | null
+        }
+        Update: {
+          actual_arrival_time?: string | null
+          cargo_type?: string | null
+          client_name?: string | null
+          created_at?: string
+          current_latitude?: number | null
+          current_longitude?: number | null
+          delivery_date?: string | null
+          delivery_window_end?: string | null
+          delivery_window_start?: string | null
+          destination?: string | null
+          driver_id?: string | null
+          driver_value?: number | null
+          email_content?: string | null
+          email_id?: string | null
+          id?: string
+          last_location_update?: string | null
+          manual_review_completed?: boolean | null
+          needs_manual_review?: boolean | null
+          origin?: string
+          pickup_date?: string | null
+          rejected_drivers_count?: number | null
+          route_states?: string | null
+          status?: string
+          total_value?: number | null
+          updated_at?: string
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "embarques_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      frota_mock: {
+        Row: {
+          created_at: string
+          data: string
+          disponiveis: number
+          id: string
+          produto: string
+          rota: string
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          disponiveis: number
+          id?: string
+          produto: string
+          rota: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          disponiveis?: number
+          id?: string
+          produto?: string
+          rota?: string
+        }
+        Relationships: []
+      }
+      message_templates: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          message_text: string
+          name: string
+          template_type: string
+          updated_at: string
+          variables: Json | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          message_text: string
+          name: string
+          template_type: string
+          updated_at?: string
+          variables?: Json | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          message_text?: string
+          name?: string
+          template_type?: string
+          updated_at?: string
+          variables?: Json | null
+        }
+        Relationships: []
+      }
+      payment_receipts: {
+        Row: {
+          amount: number | null
+          created_at: string | null
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          notes: string | null
+          receipt_type: string | null
+          shipment_id: string | null
+          updated_at: string | null
+          uploaded_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string | null
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          notes?: string | null
+          receipt_type?: string | null
+          shipment_id?: string | null
+          updated_at?: string | null
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          notes?: string | null
+          receipt_type?: string | null
+          shipment_id?: string | null
+          updated_at?: string | null
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_receipts_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "embarques"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string
+          email: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          email: string
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          email?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ranking_rules: {
+        Row: {
+          created_at: string
+          description: string | null
+          enabled: boolean | null
+          id: string
+          name: string
+          parameters: Json | null
+          rule_type: string
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean | null
+          id?: string
+          name: string
+          parameters?: Json | null
+          rule_type: string
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean | null
+          id?: string
+          name?: string
+          parameters?: Json | null
+          rule_type?: string
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: []
+      }
+      rotas_mock: {
+        Row: {
+          created_at: string
+          data: string
+          id: string
+          produto: string
+          quantidade: number
+          rota: string
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          id?: string
+          produto: string
+          quantidade: number
+          rota: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          id?: string
+          produto?: string
+          quantidade?: number
+          rota?: string
+        }
+        Relationships: []
+      }
+      shipment_documents: {
+        Row: {
+          created_at: string | null
+          document_title: string
+          document_type: string | null
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          notes: string | null
+          shipment_id: string | null
+          updated_at: string | null
+          uploaded_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          document_title: string
+          document_type?: string | null
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          notes?: string | null
+          shipment_id?: string | null
+          updated_at?: string | null
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          document_title?: string
+          document_type?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          notes?: string | null
+          shipment_id?: string | null
+          updated_at?: string | null
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_documents_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "embarques"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_permissions: {
+        Row: {
+          created_at: string
+          granted: boolean
+          id: string
+          permission: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted?: boolean
+          id?: string
+          permission: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted?: boolean
+          id?: string
+          permission?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin_or_responsavel: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "responsavel" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +813,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "responsavel", "user"],
+    },
   },
 } as const
