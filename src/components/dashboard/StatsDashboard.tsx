@@ -153,8 +153,19 @@ export const StatsDashboard = () => {
     return Object.entries(totals).map(([name, value]) => ({ name, value }));
   }, [acionamentoData]);
 
-  const availableProdutos = ['todos', 'Arroz', 'Açúcar', 'Feijão', 'Soja', 'Milho'];
-  const availableRotas = ['todos', 'São Paulo - BH', 'Campinas - RJ', 'Pelotas - POA', 'Salvador - SE'];
+  // Get unique produtos from frota_mock data
+  const availableProdutos = useMemo(() => {
+    if (!frotaData) return ['todos'];
+    const produtos = Array.from(new Set(frotaData.map(item => item.produto)));
+    return ['todos', ...produtos.sort()];
+  }, [frotaData]);
+
+  // Get unique rotas from frota_mock data
+  const availableRotas = useMemo(() => {
+    if (!frotaData) return ['todos'];
+    const rotas = Array.from(new Set(frotaData.map(item => item.rota)));
+    return ['todos', ...rotas.sort()];
+  }, [frotaData]);
 
   return (
     <div className="space-y-6">
@@ -391,7 +402,7 @@ export const StatsDashboard = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {['Arroz', 'Açúcar', 'Soja', 'Feijão', 'Milho'].map(p => (
+                  {availableProdutos.filter(p => p !== 'todos').map(p => (
                     <SelectItem key={p} value={p}>{p}</SelectItem>
                   ))}
                 </SelectContent>

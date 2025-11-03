@@ -24,8 +24,7 @@ export const RealTimeTracking = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [viewMode, setViewMode] = useState<"map" | "list">("list");
-  const [filterRegion, setFilterRegion] = useState("all");
-  const [filterRisk, setFilterRisk] = useState("all");
+  const [filterDeliveryDate, setFilterDeliveryDate] = useState("");
 
   useEffect(() => {
     fetchShipments();
@@ -203,32 +202,13 @@ export const RealTimeTracking = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Select value={filterRegion} onValueChange={setFilterRegion}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filtrar por Região" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as Regiões</SelectItem>
-                <SelectItem value="sudeste">Sudeste</SelectItem>
-                <SelectItem value="sul">Sul</SelectItem>
-                <SelectItem value="nordeste">Nordeste</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filterRisk} onValueChange={setFilterRisk}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filtrar por Risco" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Riscos</SelectItem>
-                <SelectItem value="baixo">Baixo Risco</SelectItem>
-                <SelectItem value="medio">Risco Médio</SelectItem>
-                <SelectItem value="alto">Alto Risco</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Input type="date" placeholder="Data de Entrega" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input 
+              type="date" 
+              placeholder="Data de Entrega"
+              value={filterDeliveryDate}
+              onChange={(e) => setFilterDeliveryDate(e.target.value)}
+            />
 
             <Button variant="outline" className="w-full">
               Exportar Relatório
@@ -275,7 +255,14 @@ export const RealTimeTracking = () => {
               </CardContent>
             </Card>
           ) : (
-            shipments.map((shipment) => {
+            shipments
+              .filter(shipment => {
+                if (!filterDeliveryDate) return true;
+                if (!shipment.delivery_date) return false;
+                const deliveryDate = new Date(shipment.delivery_date).toISOString().split('T')[0];
+                return deliveryDate === filterDeliveryDate;
+              })
+              .map((shipment) => {
               const progress = calculateProgress(shipment);
               const risk = calculateRisk(shipment);
               const isWaiting = shipment.actual_arrival_time && differenceInHours(new Date(), new Date(shipment.actual_arrival_time)) > 2;
