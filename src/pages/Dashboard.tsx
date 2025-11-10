@@ -11,6 +11,7 @@ import { MessageTemplatesConfig } from "@/components/dashboard/MessageTemplatesC
 import { RealTimeTracking } from "@/components/dashboard/RealTimeTracking";
 import { ShipmentFollow } from "@/components/dashboard/ShipmentFollow";
 import { OperatorPerformance } from "@/components/dashboard/OperatorPerformance";
+import { VehicleTimeline } from "@/components/dashboard/VehicleTimeline";
 import { useOperatorHeartbeat } from "@/hooks/useOperatorHeartbeat";
 import {
   Users,
@@ -24,6 +25,7 @@ import {
   MapPin,
   ClipboardList,
   Activity,
+  TruckIcon,
 } from "lucide-react";
 
 const Dashboard = () => {
@@ -138,6 +140,13 @@ const Dashboard = () => {
                 <Activity className="h-5 w-5" />
                 <span className="text-xs sm:text-sm font-medium">Operadores</span>
               </TabsTrigger>
+              <TabsTrigger 
+                value="timeline" 
+                className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <TruckIcon className="h-5 w-5" />
+                <span className="text-xs sm:text-sm font-medium">Timeline</span>
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -187,6 +196,10 @@ const Dashboard = () => {
 
           <TabsContent value="operators" className="space-y-6">
             <OperatorPerformance />
+          </TabsContent>
+
+          <TabsContent value="timeline" className="space-y-6">
+            <VehicleTimeline />
           </TabsContent>
         </Tabs>
       </main>
