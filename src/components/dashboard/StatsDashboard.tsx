@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CriticalPendencies } from "./CriticalPendencies";
 
 type PeriodFilter = 'hoje' | 'mes' | 'tudo';
 
@@ -175,6 +176,9 @@ export const StatsDashboard = () => {
           Visão geral da operação em tempo real
         </p>
       </div>
+
+      {/* Critical Pendencies Section */}
+      <CriticalPendencies />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card className="shadow-card transition-shadow hover:shadow-md">

@@ -9,6 +9,9 @@ import { UserManagement } from "@/components/dashboard/UserManagement";
 import { RankingRulesConfig } from "@/components/dashboard/RankingRulesConfig";
 import { MessageTemplatesConfig } from "@/components/dashboard/MessageTemplatesConfig";
 import { RealTimeTracking } from "@/components/dashboard/RealTimeTracking";
+import { ShipmentFollow } from "@/components/dashboard/ShipmentFollow";
+import { OperatorPerformance } from "@/components/dashboard/OperatorPerformance";
+import { useOperatorHeartbeat } from "@/hooks/useOperatorHeartbeat";
 import {
   Users,
   UserCheck,
@@ -19,9 +22,14 @@ import {
   Settings,
   Sliders,
   MapPin,
+  ClipboardList,
+  Activity,
 } from "lucide-react";
 
 const Dashboard = () => {
+  // Initialize operator heartbeat for activity tracking
+  useOperatorHeartbeat();
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 shadow-sm">
@@ -45,7 +53,7 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-6">
         <Tabs defaultValue="stats" className="space-y-6">
           <div className="bg-card border rounded-lg p-2 shadow-sm">
-            <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10 gap-1 bg-transparent h-auto">
+            <TabsList className="grid w-full grid-cols-6 lg:grid-cols-12 gap-1 bg-transparent h-auto">
               <TabsTrigger 
                 value="stats" 
                 className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
@@ -116,6 +124,20 @@ const Dashboard = () => {
                 <Settings className="h-5 w-5" />
                 <span className="text-xs sm:text-sm font-medium">Usuários</span>
               </TabsTrigger>
+              <TabsTrigger 
+                value="follow" 
+                className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <ClipboardList className="h-5 w-5" />
+                <span className="text-xs sm:text-sm font-medium">Follow</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="operators" 
+                className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <Activity className="h-5 w-5" />
+                <span className="text-xs sm:text-sm font-medium">Operadores</span>
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -157,6 +179,14 @@ const Dashboard = () => {
 
           <TabsContent value="users" className="space-y-6">
             <UserManagement />
+          </TabsContent>
+
+          <TabsContent value="follow" className="space-y-6">
+            <ShipmentFollow />
+          </TabsContent>
+
+          <TabsContent value="operators" className="space-y-6">
+            <OperatorPerformance />
           </TabsContent>
         </Tabs>
       </main>

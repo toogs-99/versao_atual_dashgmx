@@ -71,6 +71,56 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_vehicle_offers: {
+        Row: {
+          available_at: string | null
+          compatible_products: string[] | null
+          created_at: string | null
+          current_location: string | null
+          date: string
+          driver_id: string | null
+          id: string
+          offer_status: string | null
+          suggested_clients: Json | null
+          updated_at: string | null
+          vehicle_type: string | null
+        }
+        Insert: {
+          available_at?: string | null
+          compatible_products?: string[] | null
+          created_at?: string | null
+          current_location?: string | null
+          date: string
+          driver_id?: string | null
+          id?: string
+          offer_status?: string | null
+          suggested_clients?: Json | null
+          updated_at?: string | null
+          vehicle_type?: string | null
+        }
+        Update: {
+          available_at?: string | null
+          compatible_products?: string[] | null
+          created_at?: string | null
+          current_location?: string | null
+          date?: string
+          driver_id?: string | null
+          id?: string
+          offer_status?: string | null
+          suggested_clients?: Json | null
+          updated_at?: string | null
+          vehicle_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_vehicle_offers_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       delivery_receipts: {
         Row: {
           created_at: string
@@ -427,6 +477,156 @@ export type Database = {
         }
         Relationships: []
       }
+      operational_alerts: {
+        Row: {
+          action_required: string | null
+          alert_type: string
+          created_at: string | null
+          description: string | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          is_resolved: boolean | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string | null
+          title: string
+        }
+        Insert: {
+          action_required?: string | null
+          alert_type: string
+          created_at?: string | null
+          description?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string | null
+          title: string
+        }
+        Update: {
+          action_required?: string | null
+          alert_type?: string
+          created_at?: string | null
+          description?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operational_alerts_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operator_activity: {
+        Row: {
+          activity_type: string | null
+          created_at: string | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          metadata: Json | null
+          operator_id: string | null
+        }
+        Insert: {
+          activity_type?: string | null
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json | null
+          operator_id?: string | null
+        }
+        Update: {
+          activity_type?: string | null
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata?: Json | null
+          operator_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_activity_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operator_performance: {
+        Row: {
+          alerts_resolved: number | null
+          created_at: string | null
+          date: string
+          documents_reviewed: number | null
+          id: string
+          last_heartbeat: string | null
+          operator_id: string | null
+          session_end: string | null
+          session_start: string | null
+          shipments_created: number | null
+          shipments_updated: number | null
+          status_changes: number | null
+          total_online_minutes: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          alerts_resolved?: number | null
+          created_at?: string | null
+          date: string
+          documents_reviewed?: number | null
+          id?: string
+          last_heartbeat?: string | null
+          operator_id?: string | null
+          session_end?: string | null
+          session_start?: string | null
+          shipments_created?: number | null
+          shipments_updated?: number | null
+          status_changes?: number | null
+          total_online_minutes?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          alerts_resolved?: number | null
+          created_at?: string | null
+          date?: string
+          documents_reviewed?: number | null
+          id?: string
+          last_heartbeat?: string | null
+          operator_id?: string | null
+          session_end?: string | null
+          session_start?: string | null
+          shipments_created?: number | null
+          shipments_updated?: number | null
+          status_changes?: number | null
+          total_online_minutes?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_performance_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_receipts: {
         Row: {
           amount: number | null
@@ -567,6 +767,51 @@ export type Database = {
         }
         Relationships: []
       }
+      route_analytics: {
+        Row: {
+          avg_lead_time: unknown
+          avg_value: number | null
+          created_at: string | null
+          destination: string
+          fleet_reuse_percentage: number | null
+          id: string
+          last_calculated_at: string | null
+          origin: string
+          product_type: string | null
+          profitability_score: number | null
+          successful_trips: number | null
+          total_revenue: number | null
+        }
+        Insert: {
+          avg_lead_time?: unknown
+          avg_value?: number | null
+          created_at?: string | null
+          destination: string
+          fleet_reuse_percentage?: number | null
+          id?: string
+          last_calculated_at?: string | null
+          origin: string
+          product_type?: string | null
+          profitability_score?: number | null
+          successful_trips?: number | null
+          total_revenue?: number | null
+        }
+        Update: {
+          avg_lead_time?: unknown
+          avg_value?: number | null
+          created_at?: string | null
+          destination?: string
+          fleet_reuse_percentage?: number | null
+          id?: string
+          last_calculated_at?: string | null
+          origin?: string
+          product_type?: string | null
+          profitability_score?: number | null
+          successful_trips?: number | null
+          total_revenue?: number | null
+        }
+        Relationships: []
+      }
       shipment_documents: {
         Row: {
           created_at: string | null
@@ -614,6 +859,63 @@ export type Database = {
           {
             foreignKeyName: "shipment_documents_shipment_id_fkey"
             columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "embarques"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipment_vehicle_matching: {
+        Row: {
+          compatibility_level: string | null
+          compatibility_score: number | null
+          created_at: string | null
+          driver_id: string | null
+          embarque_id: string | null
+          factors: Json | null
+          id: string
+          offered_at: string | null
+          response_at: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          compatibility_level?: string | null
+          compatibility_score?: number | null
+          created_at?: string | null
+          driver_id?: string | null
+          embarque_id?: string | null
+          factors?: Json | null
+          id?: string
+          offered_at?: string | null
+          response_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          compatibility_level?: string | null
+          compatibility_score?: number | null
+          created_at?: string | null
+          driver_id?: string | null
+          embarque_id?: string | null
+          factors?: Json | null
+          id?: string
+          offered_at?: string | null
+          response_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_vehicle_matching_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_vehicle_matching_embarque_id_fkey"
+            columns: ["embarque_id"]
             isOneToOne: false
             referencedRelation: "embarques"
             referencedColumns: ["id"]
@@ -670,6 +972,143 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      vehicle_availability_forecast: {
+        Row: {
+          created_at: string | null
+          current_embarque_id: string | null
+          driver_id: string | null
+          estimated_available_at: string | null
+          estimated_location: string | null
+          forecast_updated_at: string | null
+          id: string
+          match_score: number | null
+          next_suggested_embarque_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_embarque_id?: string | null
+          driver_id?: string | null
+          estimated_available_at?: string | null
+          estimated_location?: string | null
+          forecast_updated_at?: string | null
+          id?: string
+          match_score?: number | null
+          next_suggested_embarque_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_embarque_id?: string | null
+          driver_id?: string | null
+          estimated_available_at?: string | null
+          estimated_location?: string | null
+          forecast_updated_at?: string | null
+          id?: string
+          match_score?: number | null
+          next_suggested_embarque_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_availability_forecast_current_embarque_id_fkey"
+            columns: ["current_embarque_id"]
+            isOneToOne: false
+            referencedRelation: "embarques"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_availability_forecast_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_availability_forecast_next_suggested_embarque_id_fkey"
+            columns: ["next_suggested_embarque_id"]
+            isOneToOne: false
+            referencedRelation: "embarques"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicle_journeys: {
+        Row: {
+          actual_arrival: string | null
+          actual_lead_time: unknown
+          created_at: string | null
+          current_status: string | null
+          delay_justification: string | null
+          delay_reason: string | null
+          departure_time: string | null
+          driver_id: string | null
+          embarque_id: string | null
+          estimated_arrival: string | null
+          id: string
+          is_on_time: boolean | null
+          justification_added_at: string | null
+          justification_added_by: string | null
+          route_lead_time: unknown
+          updated_at: string | null
+        }
+        Insert: {
+          actual_arrival?: string | null
+          actual_lead_time?: unknown
+          created_at?: string | null
+          current_status?: string | null
+          delay_justification?: string | null
+          delay_reason?: string | null
+          departure_time?: string | null
+          driver_id?: string | null
+          embarque_id?: string | null
+          estimated_arrival?: string | null
+          id?: string
+          is_on_time?: boolean | null
+          justification_added_at?: string | null
+          justification_added_by?: string | null
+          route_lead_time?: unknown
+          updated_at?: string | null
+        }
+        Update: {
+          actual_arrival?: string | null
+          actual_lead_time?: unknown
+          created_at?: string | null
+          current_status?: string | null
+          delay_justification?: string | null
+          delay_reason?: string | null
+          departure_time?: string | null
+          driver_id?: string | null
+          embarque_id?: string | null
+          estimated_arrival?: string | null
+          id?: string
+          is_on_time?: boolean | null
+          justification_added_at?: string | null
+          justification_added_by?: string | null
+          route_lead_time?: unknown
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_journeys_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_journeys_embarque_id_fkey"
+            columns: ["embarque_id"]
+            isOneToOne: false
+            referencedRelation: "embarques"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_journeys_justification_added_by_fkey"
+            columns: ["justification_added_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
