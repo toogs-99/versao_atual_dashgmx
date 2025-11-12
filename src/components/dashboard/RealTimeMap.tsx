@@ -30,14 +30,13 @@ interface ActiveEmbarque {
 export function RealTimeMap() {
   const queryClient = useQueryClient();
 
-  // Buscar motoristas em trânsito com suas jornadas
+  // Buscar motoristas em trânsito com suas jornadas (SEM filtro de status para ver todos)
   const { data: drivers = [], isLoading: loadingDrivers } = useQuery({
     queryKey: ['active-drivers'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('drivers')
-        .select('*, vehicle_journeys!inner(*)')
-        .eq('availability_status', 'busy')
+        .select('*, vehicle_journeys(*)')
         .not('current_location', 'is', null);
       
       if (error) throw error;
@@ -46,14 +45,14 @@ export function RealTimeMap() {
     refetchInterval: 30000, // Atualiza a cada 30s
   });
 
-  // Buscar embarques ativos para desenhar rotas
+  // Buscar embarques ativos para desenhar rotas (incluindo in_transit e new)
   const { data: activeRoutes = [], isLoading: loadingRoutes } = useQuery({
     queryKey: ['active-routes'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('embarques')
         .select('*')
-        .in('status', ['in_progress', 'loading', 'dispatched']);
+        .in('status', ['in_transit', 'in_progress', 'loading', 'dispatched', 'new']);
       
       if (error) throw error;
       return (data || []) as ActiveEmbarque[];
