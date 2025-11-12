@@ -12,6 +12,8 @@ import { RealTimeTracking } from "@/components/dashboard/RealTimeTracking";
 import { ShipmentFollow } from "@/components/dashboard/ShipmentFollow";
 import { OperatorPerformance } from "@/components/dashboard/OperatorPerformance";
 import { VehicleTimeline } from "@/components/dashboard/VehicleTimeline";
+import { LogisticsSaturationMap } from "@/components/dashboard/LogisticsSaturationMap";
+import { DailyVehicleProposals } from "@/components/dashboard/DailyVehicleProposals";
 import { useOperatorHeartbeat } from "@/hooks/useOperatorHeartbeat";
 import {
   Users,
@@ -152,6 +154,8 @@ const Dashboard = () => {
 
           <TabsContent value="stats" className="space-y-6">
             <StatsDashboard />
+            <LogisticsSaturationMap />
+            <DailyVehicleProposals />
           </TabsContent>
 
           <TabsContent value="registry" className="space-y-6">

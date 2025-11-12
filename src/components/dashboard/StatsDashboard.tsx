@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CriticalPendencies } from "./CriticalPendencies";
+import { RouteAnalyticsModal } from "./RouteAnalyticsModal";
 
 type PeriodFilter = 'hoje' | 'mes' | 'tudo';
 
@@ -18,6 +19,8 @@ export const StatsDashboard = () => {
   const [frotaProdutoFilter, setFrotaProdutoFilter] = useState<string>('todos');
   const [frotaRotaFilter, setFrotaRotaFilter] = useState<string>('todos');
   const [rotasProdutoFilter, setRotasProdutoFilter] = useState<string>('Arroz');
+  const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
 
   // Helper function to filter by date
   const getDateFilter = (period: PeriodFilter) => {
@@ -308,7 +311,16 @@ export const StatsDashboard = () => {
                   </p>
                 </div>
                 <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={frotaChartData} margin={{ left: 60, right: 10, top: 5, bottom: 5 }}>
+                  <BarChart 
+                    data={frotaChartData} 
+                    margin={{ left: 60, right: 10, top: 5, bottom: 5 }}
+                    onClick={(data) => {
+                      if (data?.activeLabel) {
+                        setSelectedRoute(data.activeLabel);
+                        setSelectedProduct(frotaProdutoFilter !== 'todos' ? frotaProdutoFilter : undefined);
+                      }
+                    }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
                       dataKey="rota" 
@@ -319,10 +331,17 @@ export const StatsDashboard = () => {
                     <YAxis 
                       label={{ value: 'Quantidade', angle: -90, position: 'center' }}
                     />
-                    <Tooltip />
-                    <Bar dataKey="disponiveis" fill="hsl(var(--primary))" />
+                    <Tooltip cursor={{ fill: 'hsl(var(--primary) / 0.1)' }} />
+                    <Bar 
+                      dataKey="disponiveis" 
+                      fill="hsl(var(--primary))" 
+                      cursor="pointer"
+                    />
                   </BarChart>
                 </ResponsiveContainer>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  💡 Clique em uma barra para ver detalhes da rota
+                </p>
               </div>
             )}
           </CardContent>
@@ -417,28 +436,43 @@ export const StatsDashboard = () => {
             {rotasLoading ? (
               <Skeleton className="h-[300px] w-full" />
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={top10Rotas}
-                  layout="vertical"
-                  margin={{ top: 5, right: 30, left: 30, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    type="number"
-                    label={{ value: 'Quantidade de Viagens', position: 'insideBottom', offset: -5 }}
-                  />
-                  <YAxis 
-                    dataKey="rota" 
-                    type="category" 
-                    width={150} 
-                    fontSize={11}
-                    label={{ value: 'Rotas', angle: -90, position: 'insideLeft', offset: 10 }}
-                  />
-                  <Tooltip />
-                  <Bar dataKey="quantidade" fill="hsl(var(--primary))" />
-                </BarChart>
-              </ResponsiveContainer>
+              <>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={top10Rotas}
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 30, bottom: 5 }}
+                    onClick={(data) => {
+                      if (data?.activeLabel) {
+                        setSelectedRoute(data.activeLabel);
+                        setSelectedProduct(rotasProdutoFilter);
+                      }
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      type="number"
+                      label={{ value: 'Quantidade de Viagens', position: 'insideBottom', offset: -5 }}
+                    />
+                    <YAxis 
+                      dataKey="rota" 
+                      type="category" 
+                      width={150} 
+                      fontSize={11}
+                      label={{ value: 'Rotas', angle: -90, position: 'insideLeft', offset: 10 }}
+                    />
+                    <Tooltip cursor={{ fill: 'hsl(var(--primary) / 0.1)' }} />
+                    <Bar 
+                      dataKey="quantidade" 
+                      fill="hsl(var(--primary))" 
+                      cursor="pointer"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  💡 Clique em uma barra para ver análise detalhada
+                </p>
+              </>
             )}
           </CardContent>
         </Card>
@@ -466,6 +500,14 @@ export const StatsDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Route Analytics Modal */}
+      <RouteAnalyticsModal
+        open={!!selectedRoute}
+        onOpenChange={(open) => !open && setSelectedRoute(null)}
+        route={selectedRoute || ''}
+        product={selectedProduct || undefined}
+      />
     </div>
   );
 };
