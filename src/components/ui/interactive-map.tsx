@@ -166,7 +166,7 @@ const SearchControl = ({ onSearch }: any) => {
   return null;
 };
 
-interface MarkerData {
+export interface MarkerData {
   id?: string | number;
   position: [number, number];
   color?: string;
@@ -179,14 +179,14 @@ interface MarkerData {
   };
 }
 
-interface PolygonData {
+export interface PolygonData {
   id?: string | number;
   positions: [number, number][];
   style?: L.PathOptions;
   popup?: string;
 }
 
-interface CircleData {
+export interface CircleData {
   id?: string | number;
   center: [number, number];
   radius: number;
@@ -194,7 +194,7 @@ interface CircleData {
   popup?: string;
 }
 
-interface PolylineData {
+export interface PolylineData {
   id?: string | number;
   positions: [number, number][];
   style?: L.PathOptions;

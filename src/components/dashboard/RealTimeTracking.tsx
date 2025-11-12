@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RealTimeMap } from "./RealTimeMap";
 import {
   Select,
   SelectContent,
@@ -225,19 +226,8 @@ export const RealTimeTracking = () => {
 
         <TabsContent value="map" className="mt-6">
           <Card className="shadow-card">
-            <CardContent className="p-0">
-              <div className="h-[600px] bg-muted rounded-lg flex items-center justify-center">
-                <div className="text-center space-y-2">
-                  <MapPin className="h-12 w-12 mx-auto text-muted-foreground" />
-                  <p className="text-lg font-medium">Mapa Interativo</p>
-                  <p className="text-sm text-muted-foreground">
-                    Integração com Google Maps / Mapbox
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Visualize todos os motoristas em tempo real no mapa
-                  </p>
-                </div>
-              </div>
+            <CardContent className="p-4">
+              <RealTimeMap />
             </CardContent>
           </Card>
         </TabsContent>
