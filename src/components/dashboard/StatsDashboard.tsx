@@ -173,12 +173,43 @@ export const StatsDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-muted-foreground">
-          Visão geral da operação em tempo real
-        </p>
-      </div>
+      {/* Header Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <CardTitle className="text-2xl">Dashboard Operacional - Visão em Tempo Real</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Monitoramento completo de operações, veículos e cargas com filtros inteligentes
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Select value={frotaProdutoFilter} onValueChange={setFrotaProdutoFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Produto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos Produtos</SelectItem>
+                  <SelectItem value="Arroz">Arroz</SelectItem>
+                  <SelectItem value="Açúcar">Açúcar</SelectItem>
+                  <SelectItem value="Farelo">Farelo</SelectItem>
+                  <SelectItem value="Milho">Milho</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={periodFilter} onValueChange={(value) => setPeriodFilter(value as PeriodFilter)}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Período" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hoje">Hoje</SelectItem>
+                  <SelectItem value="mes">Este mês</SelectItem>
+                  <SelectItem value="tudo">Tudo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
 
       {/* Critical Pendencies Section */}
       <CriticalPendencies />
