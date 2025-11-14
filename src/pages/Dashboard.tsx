@@ -11,12 +11,11 @@ import { MessageTemplatesConfig } from "@/components/dashboard/MessageTemplatesC
 import { RealTimeTracking } from "@/components/dashboard/RealTimeTracking";
 import { ShipmentFollow } from "@/components/dashboard/ShipmentFollow";
 import { OperatorPerformance } from "@/components/dashboard/OperatorPerformance";
-import { VehicleTimeline } from "@/components/dashboard/VehicleTimeline";
 import { EnhancedVehicleTimeline } from "@/components/dashboard/EnhancedVehicleTimeline";
-import { AutoMatchingPanel } from "@/components/dashboard/AutoMatchingPanel";
-import { CriticalPendencies } from "@/components/dashboard/CriticalPendencies";
 import { LogisticsSaturationMap } from "@/components/dashboard/LogisticsSaturationMap";
 import { DailyVehicleProposals } from "@/components/dashboard/DailyVehicleProposals";
+import { CriticalPendencies } from "@/components/dashboard/CriticalPendencies";
+import { GlobalMatchingPanel } from "@/components/dashboard/GlobalMatchingPanel";
 import { useOperatorHeartbeat } from "@/hooks/useOperatorHeartbeat";
 import {
   Users,
@@ -155,12 +154,14 @@ const Dashboard = () => {
             </TabsList>
           </div>
 
-          <TabsContent value="stats" className="space-y-6">
-            <StatsDashboard />
-            <EnhancedVehicleTimeline />
-            <LogisticsSaturationMap />
-            <DailyVehicleProposals />
-          </TabsContent>
+        <TabsContent value="stats" className="space-y-6">
+          <CriticalPendencies />
+          <GlobalMatchingPanel />
+          <StatsDashboard />
+          <EnhancedVehicleTimeline />
+          <LogisticsSaturationMap />
+          <DailyVehicleProposals />
+        </TabsContent>
 
           <TabsContent value="registry" className="space-y-6">
             <DynamicDriverRegistry />
@@ -207,7 +208,7 @@ const Dashboard = () => {
           </TabsContent>
 
           <TabsContent value="timeline" className="space-y-6">
-            <VehicleTimeline />
+            <EnhancedVehicleTimeline />
           </TabsContent>
         </Tabs>
       </main>

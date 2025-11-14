@@ -30,14 +30,15 @@ interface ActiveEmbarque {
 export function RealTimeMap() {
   const queryClient = useQueryClient();
 
-  // Buscar motoristas em trânsito com suas jornadas (SEM filtro de status para ver todos)
+  // Buscar APENAS motoristas que TÊM vehicle_journeys ativos (em trânsito, carregando, descarregando)
   const { data: drivers = [], isLoading: loadingDrivers } = useQuery({
     queryKey: ['active-drivers'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('drivers')
-        .select('*, vehicle_journeys(*)')
-        .not('current_location', 'is', null);
+        .select('*, vehicle_journeys!inner(*)')
+        .not('current_location', 'is', null)
+        .in('vehicle_journeys.current_status', ['loading', 'in_transit', 'unloading']);
       
       if (error) throw error;
       return (data || []) as DriverWithJourney[];
