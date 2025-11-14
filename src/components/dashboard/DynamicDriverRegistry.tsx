@@ -163,17 +163,32 @@ export const DynamicDriverRegistry = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Buscar</CardTitle>
+          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Cadastro de Motoristas ({filteredDrivers.length})
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Busque por: Nome, CPF, Placas (Caminhão/Carretas), Telefone, Cidade, Estado
+              </p>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="relative">
+          <div className="relative mb-6">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar em todos os campos..."
-              className="pl-10"
+              placeholder="Buscar por Nome, CPF, Placas, Telefone, Cidade, Estado..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
             />
+            {searchTerm && (
+              <Badge variant="secondary" className="absolute right-3 top-2.5">
+                {filteredDrivers.length} resultados
+              </Badge>
+            )}
           </div>
         </CardContent>
       </Card>
