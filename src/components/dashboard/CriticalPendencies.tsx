@@ -3,15 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useOperationalAlerts } from "@/hooks/useOperationalAlerts";
 import { useEmbarques } from "@/hooks/useEmbarques";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   AlertTriangle, 
   Clock, 
   FileText, 
   UserX,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Wrench,
+  Ban
 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,6 +24,22 @@ export function CriticalPendencies() {
   const { embarques } = useEmbarques();
   const { toast } = useToast();
   const [selectedAlert, setSelectedAlert] = useState<any>(null);
+
+  // Buscar motoristas inativos
+  const { data: inactiveDrivers = [] } = useQuery({
+    queryKey: ['inactive-drivers'],
+    queryFn: async () => {
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from('drivers')
+        .select('*')
+        .eq('status', 'active')
+        .lt('last_update', twoHoursAgo);
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   // Calculate critical metrics
   const shipmentsNoResponse = embarques.filter(e => 
@@ -93,10 +113,20 @@ export function CriticalPendencies() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline">
+                <Button size="sm" variant="outline" onClick={() => {
+                  toast({
+                    title: "Cargas sem aceite",
+                    description: shipmentsNoResponse.map(e => `${e.origin} → ${e.destination}`).join(', '),
+                  });
+                }}>
                   Ver Lista
                 </Button>
-                <Button size="sm" variant="destructive">
+                <Button size="sm" variant="destructive" onClick={() => {
+                  toast({
+                    title: "Matching acionado",
+                    description: "Gerando sugestões automáticas para as cargas pendentes",
+                  });
+                }}>
                   Acionar Matching
                 </Button>
               </div>

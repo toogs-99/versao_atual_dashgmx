@@ -9,12 +9,14 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Skeleton } from "@/components/ui/skeleton";
 import { CriticalPendencies } from "./CriticalPendencies";
 import { RouteAnalyticsModal } from "./RouteAnalyticsModal";
+import { useToast } from "@/hooks/use-toast";
 
 type PeriodFilter = 'hoje' | 'mes' | 'tudo';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))'];
 
 export const StatsDashboard = () => {
+  const { toast } = useToast();
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('hoje');
   const [frotaProdutoFilter, setFrotaProdutoFilter] = useState<string>('todos');
   const [frotaRotaFilter, setFrotaRotaFilter] = useState<string>('todos');
@@ -404,26 +406,43 @@ export const StatsDashboard = () => {
             {acionamentoLoading ? (
               <Skeleton className="h-[300px] w-full" />
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={acionamentoChartData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {acionamentoChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+              <>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart onClick={(data: any) => {
+                    if (data && data.name) {
+                      toast({
+                        title: `Veículos: ${data.name}`,
+                        description: `Total: ${data.value} veículos neste status`,
+                      });
+                    }
+                  }}>
+                    <Pie
+                      data={acionamentoChartData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                      className="cursor-pointer"
+                    >
+                      {acionamentoChartData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={COLORS[index % COLORS.length]}
+                          className="hover:opacity-80"
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  💡 Clique nas fatias para ver detalhes dos veículos
+                </p>
+              </>
             )}
           </CardContent>
         </Card>
