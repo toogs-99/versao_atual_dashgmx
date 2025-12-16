@@ -4,11 +4,7 @@ import { AvailableDrivers } from "@/components/dashboard/AvailableDrivers";
 import { ShipmentBoard } from "@/components/dashboard/ShipmentBoard";
 import { ShipmentHistory } from "@/components/dashboard/ShipmentHistory";
 import { StatsDashboard } from "@/components/dashboard/StatsDashboard";
-import { AIFaqManager } from "@/components/dashboard/AIFaqManager";
 import { UserManagement } from "@/components/dashboard/UserManagement";
-import { RankingRulesConfig } from "@/components/dashboard/RankingRulesConfig";
-import { MessageTemplatesConfig } from "@/components/dashboard/MessageTemplatesConfig";
-import { RealTimeTracking } from "@/components/dashboard/RealTimeTracking";
 import { ShipmentFollow } from "@/components/dashboard/ShipmentFollow";
 import { OperatorPerformance } from "@/components/dashboard/OperatorPerformance";
 import { EnhancedVehicleTimeline } from "@/components/dashboard/EnhancedVehicleTimeline";
@@ -23,13 +19,9 @@ import {
   Package,
   History,
   BarChart3,
-  MessageSquare,
   Settings,
-  Sliders,
-  MapPin,
   ClipboardList,
   Activity,
-  TruckIcon,
 } from "lucide-react";
 
 const Dashboard = () => {
@@ -59,7 +51,7 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-6">
         <Tabs defaultValue="stats" className="space-y-6">
           <div className="bg-card border rounded-lg p-2 shadow-sm">
-            <TabsList className="grid w-full grid-cols-6 lg:grid-cols-12 gap-1 bg-transparent h-auto">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 gap-1 bg-transparent h-auto">
               <TabsTrigger 
                 value="stats" 
                 className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
@@ -96,41 +88,6 @@ const Dashboard = () => {
                 <span className="text-xs sm:text-sm font-medium">Histórico</span>
               </TabsTrigger>
               <TabsTrigger 
-                value="tracking" 
-                className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-              >
-                <MapPin className="h-5 w-5" />
-                <span className="text-xs sm:text-sm font-medium">Rastreamento</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="ranking" 
-                className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-              >
-                <Sliders className="h-5 w-5" />
-                <span className="text-xs sm:text-sm font-medium">Rankeamento</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="messages" 
-                className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-              >
-                <MessageSquare className="h-5 w-5" />
-                <span className="text-xs sm:text-sm font-medium">Mensagens</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="faq" 
-                className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-              >
-                <MessageSquare className="h-5 w-5" />
-                <span className="text-xs sm:text-sm font-medium">FAQ IA</span>
-              </TabsTrigger>
-              <TabsTrigger 
-                value="users" 
-                className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-              >
-                <Settings className="h-5 w-5" />
-                <span className="text-xs sm:text-sm font-medium">Usuários</span>
-              </TabsTrigger>
-              <TabsTrigger 
                 value="follow" 
                 className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
@@ -145,11 +102,11 @@ const Dashboard = () => {
                 <span className="text-xs sm:text-sm font-medium">Operadores</span>
               </TabsTrigger>
               <TabsTrigger 
-                value="timeline" 
+                value="users" 
                 className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
-                <TruckIcon className="h-5 w-5" />
-                <span className="text-xs sm:text-sm font-medium">Timeline</span>
+                <Settings className="h-5 w-5" />
+                <span className="text-xs sm:text-sm font-medium">Usuários</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -179,26 +136,6 @@ const Dashboard = () => {
             <ShipmentHistory />
           </TabsContent>
 
-          <TabsContent value="tracking" className="space-y-6">
-            <RealTimeTracking />
-          </TabsContent>
-
-          <TabsContent value="ranking" className="space-y-6">
-            <RankingRulesConfig />
-          </TabsContent>
-
-          <TabsContent value="messages" className="space-y-6">
-            <MessageTemplatesConfig />
-          </TabsContent>
-
-          <TabsContent value="faq" className="space-y-6">
-            <AIFaqManager />
-          </TabsContent>
-
-          <TabsContent value="users" className="space-y-6">
-            <UserManagement />
-          </TabsContent>
-
           <TabsContent value="follow" className="space-y-6">
             <ShipmentFollow />
           </TabsContent>
@@ -207,8 +144,8 @@ const Dashboard = () => {
             <OperatorPerformance />
           </TabsContent>
 
-          <TabsContent value="timeline" className="space-y-6">
-            <EnhancedVehicleTimeline />
+          <TabsContent value="users" className="space-y-6">
+            <UserManagement />
           </TabsContent>
         </Tabs>
       </main>
