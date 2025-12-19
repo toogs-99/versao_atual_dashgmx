@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+// import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-export type Permission = 
-  | "cadastros" 
-  | "disponiveis" 
-  | "embarques" 
-  | "historico" 
-  | "dashboard" 
-  | "faq" 
+export type Permission =
+  | "cadastros"
+  | "disponiveis"
+  | "embarques"
+  | "historico"
+  | "dashboard"
+  | "faq"
   | "usuarios";
 
 export interface User {
@@ -36,28 +36,28 @@ const getFakeUsers = (): UserRecord[] => {
 const setFakeUsers = (list: UserRecord[]) => {
   try {
     localStorage.setItem(FAKE_USERS_KEY, JSON.stringify(list));
-  } catch {}
+  } catch { }
 };
 
 const ensureSeededFakeUsers = () => {
   if (getFakeUsers().length > 0) return;
   const basePerms = {
-    admin: ["cadastros","disponiveis","embarques","historico","dashboard","faq","usuarios"] as Permission[],
-    responsavel: ["cadastros","disponiveis","embarques","historico","dashboard","faq"] as Permission[],
-    user: ["dashboard","historico","embarques"] as Permission[],
+    admin: ["cadastros", "disponiveis", "embarques", "historico", "dashboard", "faq", "usuarios"] as Permission[],
+    responsavel: ["cadastros", "disponiveis", "embarques", "historico", "dashboard", "faq"] as Permission[],
+    user: ["dashboard", "historico", "embarques"] as Permission[],
   };
   const names = [
-    "Ana Souza","Bruno Lima","Carla Pereira","Diego Santos","Eduarda Rocha",
-    "Felipe Alves","Gabriela Martins","Henrique Costa","Isabela Nunes","João Pedro"
+    "Ana Souza", "Bruno Lima", "Carla Pereira", "Diego Santos", "Eduarda Rocha",
+    "Felipe Alves", "Gabriela Martins", "Henrique Costa", "Isabela Nunes", "João Pedro"
   ];
-  const roles = ["admin","responsavel","user","user","responsavel","user","admin","user","responsavel","user"] as const;
+  const roles = ["admin", "responsavel", "user", "user", "responsavel", "user", "admin", "user", "responsavel", "user"] as const;
   const now = new Date();
   const seeded = names.map((n, i) => ({
     id: (crypto as any)?.randomUUID ? (crypto as any).randomUUID() : Math.random().toString(36).slice(2),
-    email: `${n.toLowerCase().replace(/\s+/g,'')}@gmx.com.br`,
+    email: `${n.toLowerCase().replace(/\s+/g, '')}@gmx.com.br`,
     display_name: n,
     role: roles[i] as unknown as string,
-    permissions: basePerms[roles[i] as "admin"|"responsavel"|"user"],
+    permissions: basePerms[roles[i] as "admin" | "responsavel" | "user"],
     created_at: new Date(now.getTime() - i * 86400000).toISOString(),
   }));
   setFakeUsers(seeded);
@@ -71,58 +71,13 @@ export const useUsers = () => {
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
-      
-      // Fetch profiles
-      const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select("*");
-
-      if (profilesError) {
-        console.error("Profile error:", profilesError);
-        throw profilesError;
-      }
-
-      // Fetch roles for all users
-      const { data: roles, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("user_id, role");
-
-      if (rolesError) {
-        console.error("Roles error:", rolesError);
-      }
-
-      // Fetch permissions for all users
-      const { data: permissions, error: permissionsError } = await supabase
-        .from("user_permissions")
-        .select("*");
-
-      if (permissionsError) {
-        console.error("Permissions error:", permissionsError);
-      }
-
-      // Combine data
-      const usersData: User[] = (profiles || []).map((profile: any) => {
-        const userRole = roles?.find((r: any) => r.user_id === profile.id)?.role || "user";
-        return {
-          id: profile.id,
-          email: profile.email,
-          display_name: profile.display_name,
-          role: userRole,
-          permissions: permissions
-            ?.filter((p: any) => p.user_id === profile.id && p.granted)
-            .map((p: any) => p.permission) || [],
-          created_at: profile.created_at
-        };
-      });
-
       ensureSeededFakeUsers();
       const fake = getFakeUsers();
-      const mergedUsers = [...fake, ...usersData];
-      setUsers(mergedUsers);
+      setUsers(fake);
     } catch (error: any) {
       console.error("Full error:", error);
       toast({
-        title: "Erro ao carregar usuários",
+        title: "Erro ao carregar usuários (Mock)",
         description: error.message,
         variant: "destructive"
       });
@@ -133,17 +88,7 @@ export const useUsers = () => {
 
   useEffect(() => {
     fetchUsers();
-
-    const channel = supabase
-      .channel('users-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchUsers)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_roles' }, fetchUsers)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_permissions' }, fetchUsers)
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // Realtime removed
   }, []);
 
   const createUser = async (email: string, password: string, displayName: string, role: string, permissions: Permission[]) => {

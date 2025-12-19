@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Search, User, List, Grid, Download, Settings as SettingsIcon, Pencil } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { supabase } from "@/integrations/supabase/client";
+// import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useDriverFields } from "@/hooks/useDriverFields";
 import { DynamicFieldRenderer } from "@/components/driver/DynamicFieldRenderer";
@@ -14,6 +14,8 @@ import { DriverProfileDialog } from "@/components/driver/DriverProfileDialog";
 import { DriverCrudDialog } from "@/components/driver/DriverCrudDialog";
 import { FieldConfigManager } from "./FieldConfigManager";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { directus } from "@/lib/directus";
+import { readItems, updateItem, createItem } from "@directus/sdk";
 
 export const DynamicDriverRegistry = () => {
   const { toast } = useToast();
@@ -27,48 +29,74 @@ export const DynamicDriverRegistry = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingDriver, setEditingDriver] = useState<any | null>(null);
-  const [isEditOpen, setIsEditOpen] = useState(false);
+
+  const [startInEditMode, setStartInEditMode] = useState(false);
   const itemsPerPage = 20;
 
   useEffect(() => {
     fetchDrivers();
-
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('drivers-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'drivers'
-        },
-        () => {
-          fetchDrivers();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // Realtime removed
   }, []);
 
+  /* Custom Fields Definition for Display */
+  const displayFields = [
+    { id: 'name_full', field_name: 'nome_completo', display_name: 'Nome Completo', field_type: 'text' },
+    { id: 'phone', field_name: 'telefone', display_name: 'Telefone', field_type: 'text' },
+    { id: 'status', field_name: 'status_logistica', display_name: 'Status', field_type: 'status' },
+  ];
+
+  /* Fetch Drivers from Directus manually joining Availability */
   const fetchDrivers = async () => {
     try {
-      const { data, error } = await supabase
-        .from("drivers")
-        .select("*")
-        .order("name", { ascending: true });
+      setIsLoading(true);
 
-      if (error) throw error;
-      setDrivers(data || []);
+      // 1. Fetch Drivers
+      const driversData = await directus.request(readItems('cadastro_motorista', {
+        fields: ['id', 'nome', 'sobrenome', 'telefone'], // Remove 'status' and 'disponivel' alias
+        sort: ['-date_created']
+      }));
+
+      // 2. Fetch Latest Availability for these drivers
+      const driverIds = driversData.map((d: any) => d.id);
+      let availabilityMap: Record<number, any> = {};
+
+      if (driverIds.length > 0) {
+        const availabilityData = await directus.request(readItems('disponivel', {
+          filter: {
+            motorista_id: { _in: driverIds }
+          },
+          sort: ['-date_created'], // Sort by newest
+          limit: -1 // Fetch all relevant history for these drivers to find latest per driver
+        }));
+
+        // Populate map with the first (latest) record for each driver
+        availabilityData.forEach((record: any) => {
+          const mId = record.motorista_id?.id || record.motorista_id; // Handle expanded or ID
+          if (mId && !availabilityMap[mId]) {
+            availabilityMap[mId] = record;
+          }
+        });
+      }
+
+      // 3. Merge
+      const formatted = driversData.map((item: any) => {
+        const latestRecord = availabilityMap[item.id];
+        const displayStatus = (latestRecord && latestRecord.status === 'disponivel') ? 'Disponível' : 'Indisponível';
+
+        return {
+          ...item,
+          nome_completo: `${item.nome || ''} ${item.sobrenome || ''}`.trim(),
+          current_availability: latestRecord,
+          status_logistica: displayStatus
+        };
+      });
+
+      setDrivers(formatted);
     } catch (error) {
       console.error("Error fetching drivers:", error);
       toast({
         title: "Erro ao carregar motoristas",
-        description: "Não foi possível carregar a lista de motoristas.",
+        description: "Não foi possível carregar a lista do Directus.",
         variant: "destructive"
       });
     } finally {
@@ -78,8 +106,44 @@ export const DynamicDriverRegistry = () => {
 
   const handleEditDriver = (driver: any, e: React.MouseEvent) => {
     e.stopPropagation();
-    setEditingDriver(driver);
-    setIsEditOpen(true);
+    setSelectedDriver(driver);
+    setStartInEditMode(true);
+    setIsProfileOpen(true);
+    setStartInEditMode(true);
+    setIsProfileOpen(true);
+  };
+
+  const handleToggleStatus = async (driver: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const currentRecord = driver.current_availability;
+    const currentStatus = currentRecord?.status === 'disponivel' ? 'disponivel' : 'indisponivel';
+    const newStatus = currentStatus === 'disponivel' ? 'indisponivel' : 'disponivel';
+
+    try {
+      // Always create a new record for history tracking
+      const payload: any = {
+        motorista_id: driver.id,
+        status: newStatus,
+        data_previsao_disponibilidade: new Date().toISOString(),
+      };
+
+      // Copy relevant fields from previous record if it exists to maintain context
+      if (currentRecord) {
+        if (currentRecord.local_disponibilidade) payload.local_disponibilidade = currentRecord.local_disponibilidade;
+        if (currentRecord.localizacao_atual) payload.localizacao_atual = currentRecord.localizacao_atual; // Field alias check
+        // Add other fields if necessary based on schema inspection (cidade, estado, etc. if they exist in 'disponivel')
+      }
+
+      await directus.request(createItem('disponivel', payload));
+
+      // Removed sync to 'cadastro_motorista' as per instructions
+
+      toast({ title: `Status atualizado para ${newStatus === 'disponivel' ? 'Disponível' : 'Indisponível'}` });
+      fetchDrivers(); // Refresh list to get the latest record as current
+    } catch (error) {
+      console.error("Error toggling status:", error);
+      toast({ variant: "destructive", title: "Erro ao atualizar status" });
+    }
   };
 
   const filteredDrivers = drivers.filter((driver) => {
@@ -97,9 +161,9 @@ export const DynamicDriverRegistry = () => {
   const exportToCSV = () => {
     if (filteredDrivers.length === 0) return;
 
-    const headers = tableFields.map(f => f.display_name);
+    const headers = displayFields.map(f => f.display_name);
     const rows = filteredDrivers.map(driver =>
-      tableFields.map(field => driver[field.field_name] || "")
+      displayFields.map(field => driver[field.field_name] || "")
     );
 
     const csvContent = [
@@ -130,7 +194,11 @@ export const DynamicDriverRegistry = () => {
           <p className="text-muted-foreground">{filteredDrivers.length} motoristas</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setIsCreateOpen(true)}>
+          <Button onClick={() => {
+            setSelectedDriver(null);
+            setStartInEditMode(true);
+            setIsProfileOpen(true);
+          }}>
             <User className="h-4 w-4 mr-2" />
             Adicionar Motorista
           </Button>
@@ -208,6 +276,7 @@ export const DynamicDriverRegistry = () => {
                 className="shadow-card transition-all hover:shadow-md cursor-pointer"
                 onClick={() => {
                   setSelectedDriver(driver);
+                  setStartInEditMode(false);
                   setIsProfileOpen(true);
                 }}
               >
@@ -222,15 +291,23 @@ export const DynamicDriverRegistry = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {cardFields.map((field) => (
+                  {displayFields.map((field) => (
                     <div key={field.id} className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">{field.display_name}:</span>
+                      <span className="text-muted-foreground">{field.display_name}:</span>
                       <span className="font-medium">
-                        <DynamicFieldRenderer
-                          fieldType={field.field_type}
-                          value={driver[field.field_name]}
-                          fieldName={field.field_name}
-                        />
+                        {field.id === 'status' ? (
+                          <Button
+                            variant={driver.status_logistica === 'Disponível' ? "default" : "destructive"}
+                            size="sm"
+                            className={`h-6 text-xs ${driver.status_logistica === 'Disponível' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
+                            onClick={(e) => handleToggleStatus(driver, e)}
+                          >
+                            {driver.status_logistica}
+                          </Button>
+                        ) : (
+                          driver[field.field_name]
+                        )}
                       </span>
                     </div>
                   ))}
@@ -244,7 +321,7 @@ export const DynamicDriverRegistry = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                {tableFields.map((field) => (
+                {displayFields.map((field) => (
                   <TableHead key={field.id}>{field.display_name}</TableHead>
                 ))}
                 <TableHead className="w-[80px]">Ações</TableHead>
@@ -253,7 +330,7 @@ export const DynamicDriverRegistry = () => {
             <TableBody>
               {currentDrivers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={tableFields.length} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={displayFields.length + 1} className="text-center py-8 text-muted-foreground">
                     Nenhum motorista encontrado
                   </TableCell>
                 </TableRow>
@@ -264,16 +341,24 @@ export const DynamicDriverRegistry = () => {
                     className="hover:bg-muted/50 cursor-pointer"
                     onClick={() => {
                       setSelectedDriver(driver);
+                      setStartInEditMode(false);
                       setIsProfileOpen(true);
                     }}
                   >
-                    {tableFields.map((field) => (
+                    {displayFields.map((field) => (
                       <TableCell key={field.id}>
-                        <DynamicFieldRenderer
-                          fieldType={field.field_type}
-                          value={driver[field.field_name]}
-                          fieldName={field.field_name}
-                        />
+                        {field.id === 'status' ? (
+                          <Button
+                            variant={driver.status_logistica === 'Disponível' ? "default" : "destructive"}
+                            size="sm"
+                            className={`h-6 text-xs w-24 ${driver.status_logistica === 'Disponível' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
+                            onClick={(e) => handleToggleStatus(driver, e)}
+                          >
+                            {driver.status_logistica}
+                          </Button>
+                        ) : (
+                          driver[field.field_name]
+                        )}
                       </TableCell>
                     ))}
                     <TableCell>
@@ -323,9 +408,22 @@ export const DynamicDriverRegistry = () => {
 
       <DriverProfileDialog
         open={isProfileOpen}
-        onOpenChange={setIsProfileOpen}
-        driverName={selectedDriver?.name || null}
+        onOpenChange={(open) => {
+          setIsProfileOpen(open);
+          if (!open) {
+            setStartInEditMode(false);
+          }
+        }}
+        driverName={selectedDriver?.nome || selectedDriver?.name || null}
         driverData={selectedDriver}
+        initialEditMode={startInEditMode}
+        onUpdate={(newDriver) => {
+          fetchDrivers();
+          if (newDriver) {
+            setSelectedDriver(newDriver);
+            setStartInEditMode(false); // Disable edit mode so it lands on view mode for the just-saved info
+          }
+        }}
       />
 
       <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
@@ -346,16 +444,7 @@ export const DynamicDriverRegistry = () => {
         }}
       />
 
-      <DriverCrudDialog
-        open={isEditOpen}
-        onOpenChange={setIsEditOpen}
-        driver={editingDriver}
-        onSuccess={() => {
-          fetchDrivers();
-          setIsEditOpen(false);
-          setEditingDriver(null);
-        }}
-      />
+      {/* Edit Dialog Logic Removed - using ProfileDialog for Edits now */}
     </div>
   );
 };

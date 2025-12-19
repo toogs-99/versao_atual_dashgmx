@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { useEmbarques } from "@/hooks/useEmbarques";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { 
-  Search, 
-  Package, 
-  Truck, 
-  MapPin, 
+// import { supabase } from "@/integrations/supabase/client";
+import {
+  Search,
+  Package,
+  Truck,
+  MapPin,
   Clock,
   Download,
   ChevronDown,
@@ -43,17 +43,21 @@ export function ShipmentFollow() {
   const { data: journeys = [] } = useQuery({
     queryKey: ['vehicle-journeys-all'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('vehicle_journeys')
-        .select(`
-          *,
-          driver:drivers(*),
-          embarque:embarques(*)
-        `)
-        .order('departure_time', { ascending: false });
-
-      if (error) throw error;
-      return data;
+      // MOCK DATA
+      return [
+        {
+          id: 'j1',
+          embarque_id: 'e1', // Must match an ID from useEmbarques mock if possible, or be ignored
+          driver_id: 'd1',
+          departure_time: new Date(Date.now() - 3600000).toISOString(),
+          estimated_arrival: new Date(Date.now() + 7200000).toISOString(),
+          current_status: 'in_transit',
+          is_on_time: true,
+          delay_justification: null, // Fixed: Added missing property
+          driver: { name: 'João (MOCK)', truck_plate: 'ABC-1234', vehicle_type: 'Truck' },
+          embarque: {}
+        }
+      ];
     },
   });
 
@@ -86,7 +90,7 @@ export function ShipmentFollow() {
       'unloading': { variant: 'default', label: 'Descarregando' },
       'completed': { variant: 'outline', label: 'Concluído' },
     };
-    
+
     const config = variants[status] || { variant: 'secondary', label: status };
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
@@ -106,19 +110,19 @@ export function ShipmentFollow() {
       const now = new Date();
       const diff = eta.getTime() - now.getTime();
       const hours = Math.floor(diff / (1000 * 60 * 60));
-      
+
       if (hours < 0) return { text: 'Atrasado', color: 'text-destructive' };
       if (hours < 2) return { text: `${hours}h`, color: 'text-yellow-600' };
       return { text: `${hours}h`, color: 'text-green-600' };
     }
-    
+
     if (!embarque.delivery_date) return { text: 'Não definido', color: 'text-muted-foreground' };
-    
+
     const deliveryDate = new Date(embarque.delivery_date);
     const now = new Date();
     const diff = deliveryDate.getTime() - now.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
-    
+
     if (hours < 0) return { text: 'Atrasado', color: 'text-destructive' };
     if (hours < 24) return { text: `${hours}h`, color: 'text-yellow-600' };
     const days = Math.floor(hours / 24);
@@ -146,11 +150,11 @@ export function ShipmentFollow() {
   const calculateNextAvailability = (estimatedArrival: string) => {
     const eta = new Date(estimatedArrival);
     eta.setHours(eta.getHours() + 3);
-    return eta.toLocaleString('pt-BR', { 
-      day: '2-digit', 
-      month: '2-digit', 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    return eta.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -216,11 +220,11 @@ export function ShipmentFollow() {
                 const eta = calculateETA(embarque, journey);
                 const isExpanded = expandedRows.has(embarque.id);
                 const hasJourney = !!journey;
-                
+
                 return (
                   <Collapsible key={embarque.id} asChild open={isExpanded}>
                     <>
-                      <TableRow 
+                      <TableRow
                         className={hasJourney ? "cursor-pointer hover:bg-muted/50" : ""}
                         onClick={() => hasJourney && toggleRow(embarque.id)}
                       >
@@ -289,7 +293,7 @@ export function ShipmentFollow() {
                           </div>
                         </TableCell>
                       </TableRow>
-                      
+
                       {hasJourney && (
                         <CollapsibleContent asChild>
                           <TableRow className="bg-muted/30">
@@ -323,7 +327,7 @@ export function ShipmentFollow() {
                                 {/* Timeline */}
                                 <div className="relative pl-8 space-y-3">
                                   <div className="absolute left-2 top-2 bottom-2 w-0.5 bg-border" />
-                                  
+
                                   {/* Departure */}
                                   <div className="relative">
                                     <div className="absolute -left-[26px] h-4 w-4 rounded-full bg-green-500 border-2 border-background" />

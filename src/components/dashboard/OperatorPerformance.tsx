@@ -28,27 +28,51 @@ export function OperatorPerformance() {
   const { data: performances = [], isLoading } = useQuery({
     queryKey: ['operator_performance', today],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('operator_performance')
-        .select(`
-          *,
-          profile:profiles(display_name, email)
-        `)
-        .eq('date', today)
-        .order('total_online_minutes', { ascending: false });
-
-      if (error) throw error;
-      return data as OperatorPerformanceData[];
+      // MOCK DATA
+      return [
+        {
+          id: "1",
+          operator_id: "op1",
+          date: today,
+          last_heartbeat: new Date().toISOString(),
+          total_online_minutes: 240,
+          shipments_created: 5,
+          shipments_updated: 12,
+          documents_reviewed: 8,
+          status_changes: 15,
+          alerts_resolved: 2,
+          profile: {
+            display_name: "Carlos Operador (MOCK)",
+            email: "carlos@exemplo.com"
+          }
+        },
+        {
+          id: "2",
+          operator_id: "op2",
+          date: today,
+          last_heartbeat: new Date(Date.now() - 3600000).toISOString(),
+          total_online_minutes: 120,
+          shipments_created: 2,
+          shipments_updated: 5,
+          documents_reviewed: 10,
+          status_changes: 8,
+          alerts_resolved: 0,
+          profile: {
+            display_name: "Ana Supervisora (MOCK)",
+            email: "ana@exemplo.com"
+          }
+        }
+      ] as OperatorPerformanceData[];
     },
   });
 
   const getOnlineStatus = (lastHeartbeat?: string) => {
     if (!lastHeartbeat) return 'offline';
-    
+
     const lastBeat = new Date(lastHeartbeat).getTime();
     const now = Date.now();
     const diffMinutes = (now - lastBeat) / (1000 * 60);
-    
+
     return diffMinutes < 2 ? 'online' : 'offline';
   };
 
@@ -156,7 +180,7 @@ export function OperatorPerformance() {
               const isOnline = status === 'online';
 
               return (
-                <div 
+                <div
                   key={perf.id}
                   className="flex items-center justify-between p-4 border rounded-lg"
                 >

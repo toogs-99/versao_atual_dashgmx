@@ -1,99 +1,32 @@
-import { supabase } from "@/integrations/supabase/client";
+// import { supabase } from "@/integrations/supabase/client";
 import { EmbarqueInsert, EmbarqueUpdate, EmbarqueStatus } from "@/types/embarque";
 import { toast } from "sonner";
 
 export async function createEmbarque(data: EmbarqueInsert) {
-  try {
-    const { data: newEmbarque, error } = await supabase
-      .from('embarques')
-      .insert(data)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    toast.success('Embarque criado com sucesso!');
-    return newEmbarque;
-  } catch (error) {
-    console.error('Error creating embarque:', error);
-    toast.error('Erro ao criar embarque');
-    throw error;
-  }
+  console.log("Mock createEmbarque:", data);
+  toast.success('Embarque criado com sucesso! (MOCK)');
+  return { id: 'mock-id-' + Date.now(), ...data };
 }
 
 export async function updateEmbarqueStatus(id: string, status: EmbarqueStatus) {
-  try {
-    const { data, error } = await supabase
-      .from('embarques')
-      .update({ status })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    toast.success('Status atualizado com sucesso!');
-    return data;
-  } catch (error) {
-    console.error('Error updating embarque status:', error);
-    toast.error('Erro ao atualizar status');
-    throw error;
-  }
+  console.log("Mock updateEmbarqueStatus:", id, status);
+  toast.success('Status atualizado com sucesso! (MOCK)');
+  return { id, status };
 }
 
 export async function updateEmbarque(id: string, data: EmbarqueUpdate) {
-  try {
-    const { data: updatedEmbarque, error } = await supabase
-      .from('embarques')
-      .update(data)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    toast.success('Embarque atualizado com sucesso!');
-    return updatedEmbarque;
-  } catch (error) {
-    console.error('Error updating embarque:', error);
-    toast.error('Erro ao atualizar embarque');
-    throw error;
-  }
+  console.log("Mock updateEmbarque:", id, data);
+  toast.success('Embarque atualizado com sucesso! (MOCK)');
+  return { id, ...data };
 }
 
 export async function deleteEmbarque(id: string) {
-  try {
-    const { error } = await supabase
-      .from('embarques')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
-
-    toast.success('Embarque removido com sucesso!');
-  } catch (error) {
-    console.error('Error deleting embarque:', error);
-    toast.error('Erro ao remover embarque');
-    throw error;
-  }
+  console.log("Mock deleteEmbarque:", id);
+  toast.success('Embarque removido com sucesso! (MOCK)');
 }
 
 export async function assignDriver(embarqueId: string, driverId: string) {
-  try {
-    const { data, error } = await supabase
-      .from('embarques')
-      .update({ driver_id: driverId })
-      .eq('id', embarqueId)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    toast.success('Motorista atribuído com sucesso!');
-    return data;
-  } catch (error) {
-    console.error('Error assigning driver:', error);
-    toast.error('Erro ao atribuir motorista');
-    throw error;
-  }
+  console.log("Mock assignDriver:", embarqueId, driverId);
+  toast.success('Motorista atribuído com sucesso! (MOCK)');
+  return { id: embarqueId, driver_id: driverId };
 }

@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+// import { supabase } from "@/integrations/supabase/client";
 import { Truck, MapPin, Calendar, TrendingUp, ArrowRight, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -17,14 +17,17 @@ export function GlobalMatchingPanel() {
   const { data: pendingEmbarques = [], isLoading: loadingEmbarques } = useQuery({
     queryKey: ['pending-embarques-matching'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('embarques')
-        .select('*')
-        .in('status', ['new', 'awaiting_response'])
-        .order('created_at', { ascending: true });
-      
-      if (error) throw error;
-      return data || [];
+      // MOCK DATA
+      return [
+        {
+          id: 'e1',
+          client_name: 'Cliente Mock',
+          status: 'new',
+          origin: 'São Paulo, SP',
+          destination: 'Curitiba, PR',
+          delivery_date: new Date().toISOString()
+        }
+      ];
     },
   });
 
@@ -32,18 +35,31 @@ export function GlobalMatchingPanel() {
   const { data: allMatches = [], isLoading: loadingMatches } = useQuery({
     queryKey: ['all-vehicle-matches'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('shipment_vehicle_matching')
-        .select(`
-          *,
-          driver:drivers(*),
-          embarque:embarques(*)
-        `)
-        .in('status', ['suggested', 'offered'])
-        .order('compatibility_score', { ascending: false });
-      
-      if (error) throw error;
-      return data || [];
+      // MOCK DATA
+      return [
+        {
+          id: 'm1',
+          embarque_id: 'e1',
+          driver_id: 'd1',
+          compatibility_score: 95,
+          compatibility_level: 'high',
+          factors: { location_match: true, equipment_compatible: true },
+          status: 'suggested',
+          driver: { name: 'João (MOCK)', truck_plate: 'ABC-1234' },
+          embarque: {}
+        },
+        {
+          id: 'm2',
+          embarque_id: 'e1',
+          driver_id: 'd2',
+          compatibility_score: 80,
+          compatibility_level: 'medium',
+          factors: { equipment_compatible: true },
+          status: 'suggested',
+          driver: { name: 'Pedro (MOCK)', truck_plate: 'XYZ-5678' },
+          embarque: {}
+        }
+      ];
     },
   });
 
@@ -68,7 +84,7 @@ export function GlobalMatchingPanel() {
 
   const handleOfferAllMatches = async (embarqueId: string) => {
     const embarqueMatches = allMatches.filter(m => m.embarque_id === embarqueId && m.status === 'suggested');
-    
+
     try {
       for (const match of embarqueMatches) {
         await updateMatchStatus(match.id, 'offered');
@@ -103,14 +119,14 @@ export function GlobalMatchingPanel() {
 
   const getFactorsList = (factors: any) => {
     if (!factors) return [];
-    
+
     const factorsList = [];
     if (factors.location_match) factorsList.push({ icon: '✅', text: 'Mesma região (retorno eficiente)' });
     if (factors.equipment_compatible) factorsList.push({ icon: '✅', text: 'Equipamento compatível' });
     if (factors.available_soon) factorsList.push({ icon: '✅', text: `Disponível em breve` });
     if (factors.gr_approved) factorsList.push({ icon: '✅', text: 'GR Aprovada' });
     if (!factors.client_history) factorsList.push({ icon: '⚠️', text: 'Sem histórico com este cliente' });
-    
+
     return factorsList;
   };
 
@@ -176,7 +192,7 @@ export function GlobalMatchingPanel() {
                   </div>
                 </div>
                 {embarqueMatches.length > 0 && (
-                  <Button 
+                  <Button
                     size="sm"
                     onClick={() => handleOfferAllMatches(embarque.id)}
                     disabled={!embarqueMatches.some(m => m.status === 'suggested')}
@@ -218,8 +234,8 @@ export function GlobalMatchingPanel() {
                       {/* Status e Ação */}
                       <div className="pt-2 border-t">
                         {match.status === 'suggested' ? (
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             className="w-full"
                             onClick={() => handleOfferMatch(match.id, embarque.id)}
                             disabled={offeringMatch === match.id}

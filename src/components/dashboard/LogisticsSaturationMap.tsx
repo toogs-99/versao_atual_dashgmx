@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+// import { supabase } from "@/integrations/supabase/client";
 import { MapPin, TrendingUp, TrendingDown, Minus, Truck, Package } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -23,12 +23,16 @@ export function LogisticsSaturationMap() {
   const { data: drivers, isLoading: driversLoading } = useQuery({
     queryKey: ['drivers_by_region'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('drivers')
-        .select('state, current_location, availability_status');
-      
-      if (error) throw error;
-      return data || [];
+      // MOCK DATA
+      return [
+        { state: 'SP', current_location: 'São Paulo', availability_status: 'available' },
+        { state: 'SP', current_location: 'Campinas', availability_status: 'available' },
+        { state: 'MG', current_location: 'Belo Horizonte', availability_status: 'available' },
+        { state: 'PR', current_location: 'Curitiba', availability_status: 'available' },
+        { state: 'SC', current_location: 'Joinville', availability_status: 'available' },
+        { state: 'RS', current_location: 'Porto Alegre', availability_status: 'available' },
+        { state: 'RJ', current_location: 'Rio de Janeiro', availability_status: 'available' },
+      ];
     },
   });
 
@@ -36,13 +40,13 @@ export function LogisticsSaturationMap() {
   const { data: shipments, isLoading: shipmentsLoading } = useQuery({
     queryKey: ['shipments_by_region'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('embarques')
-        .select('origin, destination, status, route_states')
-        .in('status', ['pending', 'new', 'awaiting_response']);
-      
-      if (error) throw error;
-      return data || [];
+      // MOCK DATA
+      return [
+        { origin: 'SP', destination: 'MG', status: 'new', route_states: 'SP, MG' },
+        { origin: 'SP', destination: 'PR', status: 'pending', route_states: 'SP, PR' },
+        { origin: 'MG', destination: 'BA', status: 'pending', route_states: 'MG, BA' },
+        { origin: 'PR', destination: 'SC', status: 'new', route_states: 'PR, SC' },
+      ];
     },
   });
 
@@ -55,7 +59,7 @@ export function LogisticsSaturationMap() {
     // Count available vehicles by state
     drivers.forEach((driver) => {
       if (!driver.state) return;
-      
+
       if (!regions[driver.state]) {
         regions[driver.state] = {
           region: driver.state,
@@ -75,10 +79,10 @@ export function LogisticsSaturationMap() {
     // Count pending shipments by state
     shipments.forEach((shipment) => {
       const states = shipment.route_states?.split(',').map(s => s.trim()) || [];
-      
+
       states.forEach((state) => {
         if (!state) return;
-        
+
         if (!regions[state]) {
           regions[state] = {
             region: state,
@@ -89,7 +93,7 @@ export function LogisticsSaturationMap() {
             saturationScore: 0,
           };
         }
-        
+
         regions[state].pendingShipments++;
       });
     });
@@ -194,8 +198,8 @@ export function LogisticsSaturationMap() {
                       <span>{region.pendingShipments} cargas</span>
                     </div>
                   </div>
-                  <Badge 
-                    variant={getSaturationBadgeVariant(region.saturationLevel)} 
+                  <Badge
+                    variant={getSaturationBadgeVariant(region.saturationLevel)}
                     className="mt-2 w-full justify-center text-xs"
                   >
                     {getSaturationLabel(region.saturationLevel)}
@@ -239,7 +243,7 @@ export function LogisticsSaturationMap() {
               {selectedRegion?.state} - Detalhes
             </DialogTitle>
           </DialogHeader>
-          
+
           {selectedRegion && (
             <div className="space-y-4">
               <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
@@ -295,23 +299,22 @@ export function LogisticsSaturationMap() {
                   <div className="mt-3">
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div
-                        className={`h-full transition-all ${
-                          selectedRegion.saturationLevel === 'excess' ? 'bg-red-500' :
+                        className={`h-full transition-all ${selectedRegion.saturationLevel === 'excess' ? 'bg-red-500' :
                           selectedRegion.saturationLevel === 'demand' ? 'bg-green-500' :
-                          'bg-yellow-500'
-                        }`}
-                        style={{ 
-                          width: `${Math.min(selectedRegion.saturationScore * 25, 100)}%` 
+                            'bg-yellow-500'
+                          }`}
+                        style={{
+                          width: `${Math.min(selectedRegion.saturationScore * 25, 100)}%`
                         }}
                       />
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    {selectedRegion.saturationLevel === 'excess' && 
+                    {selectedRegion.saturationLevel === 'excess' &&
                       'Há mais veículos do que demanda. Considere realocar para outras regiões.'}
-                    {selectedRegion.saturationLevel === 'balanced' && 
+                    {selectedRegion.saturationLevel === 'balanced' &&
                       'Oferta e demanda estão equilibradas.'}
-                    {selectedRegion.saturationLevel === 'demand' && 
+                    {selectedRegion.saturationLevel === 'demand' &&
                       'Há mais demanda do que veículos disponíveis. Priorize esta região.'}
                   </p>
                 </CardContent>

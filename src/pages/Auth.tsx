@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+// import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +27,7 @@ const Auth = () => {
 
     try {
       const validation = authSchema.safeParse({ email, password });
-      
+
       if (!validation.success) {
         toast({
           title: "Erro de validação",
@@ -38,51 +38,19 @@ const Auth = () => {
         return;
       }
 
-      if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+      // MOCK LOGIN SUCCESS
+      setTimeout(() => {
+        console.log("Mock Login Success");
+        navigate("/dashboard");
+        setLoading(false);
+      }, 800);
 
-        if (error) {
-          toast({
-            title: "Erro ao fazer login",
-            description: error.message,
-            variant: "destructive",
-          });
-        } else {
-          navigate("/dashboard");
-        }
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-          },
-        });
-
-        if (error) {
-          toast({
-            title: "Erro ao criar conta",
-            description: error.message,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Conta criada com sucesso!",
-            description: "Você já pode fazer login.",
-          });
-          setIsLogin(true);
-        }
-      }
     } catch (error) {
       toast({
         title: "Erro",
         description: "Ocorreu um erro inesperado",
         variant: "destructive",
       });
-    } finally {
       setLoading(false);
     }
   };
@@ -94,7 +62,7 @@ const Auth = () => {
           <CardTitle>{isLogin ? "Login" : "Criar Conta"}</CardTitle>
           <CardDescription>
             {isLogin
-              ? "Entre com suas credenciais"
+              ? "Entre com suas credenciais (MOCK MODE)"
               : "Crie uma nova conta para continuar"}
           </CardDescription>
         </CardHeader>

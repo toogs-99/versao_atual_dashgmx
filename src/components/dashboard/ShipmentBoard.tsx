@@ -45,7 +45,7 @@ export const ShipmentBoard = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   // Fetch data from database
   const { embarques, embarquesByStatus, isLoading } = useEmbarques();
 
@@ -63,8 +63,8 @@ export const ShipmentBoard = () => {
     const formatDate = (dateString: string | null) => {
       if (!dateString) return null;
       try {
-        return new Date(dateString).toLocaleDateString('pt-BR', { 
-          day: '2-digit', 
+        return new Date(dateString).toLocaleDateString('pt-BR', {
+          day: '2-digit',
           month: '2-digit',
           year: 'numeric',
           hour: '2-digit',
@@ -76,7 +76,7 @@ export const ShipmentBoard = () => {
     };
 
     const statuses: EmbarqueStatus[] = ['new', 'needs_attention', 'sent', 'waiting_confirmation', 'confirmed', 'in_transit', 'waiting_receipt'];
-    
+
     const columns = statuses.map(status => {
       const config = statusMapping[status];
       const filteredEmbarques = filterByPeriod(embarquesByStatus[status] || []);
@@ -131,36 +131,17 @@ export const ShipmentBoard = () => {
   };
 
   const handleConfirmGMX = async (shipment: any) => {
-    try {
-      const { error } = await supabase
-        .from('embarques')
-        .update({ status: 'confirmed' })
-        .eq('id', shipment.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "GMX Confirmado",
-        description: `Embarque #${shipment.id} confirmado com sucesso!`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Erro ao confirmar",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
+    toast({
+      title: "GMX Confirmado (MOCK)",
+      description: `Embarque #${shipment.id} confirmado com sucesso!`,
+    });
   };
 
   const handleStartRide = async (shipment: any) => {
-    // Check if payment receipt exists
-    const { data: receipts } = await supabase
-      .from('payment_receipts')
-      .select('id')
-      .eq('shipment_id', shipment.id)
-      .limit(1);
+    // Mock check: always assume receipt exists or allow override
+    const mockReceiptExists = true;
 
-    if (!receipts || receipts.length === 0) {
+    if (!mockReceiptExists) {
       setShipmentToStart(shipment);
       setAlertDialogOpen(true);
     } else {
@@ -169,25 +150,10 @@ export const ShipmentBoard = () => {
   };
 
   const startRide = async (shipment: any) => {
-    try {
-      const { error } = await supabase
-        .from('embarques')
-        .update({ status: 'in_transit' })
-        .eq('id', shipment.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Corrida Iniciada",
-        description: `Embarque #${shipment.id} iniciado com sucesso!`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Erro ao iniciar corrida",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
+    toast({
+      title: "Corrida Iniciada (MOCK)",
+      description: `Embarque #${shipment.id} iniciado com sucesso!`,
+    });
   };
 
   const handleForceStart = async () => {
@@ -288,7 +254,7 @@ export const ShipmentBoard = () => {
         onOpenChange={setDialogOpen}
         shipment={selectedShipment}
       />
-      
+
       <DriverProfileDialog
         open={driverDialogOpen}
         onOpenChange={setDriverDialogOpen}
@@ -304,7 +270,7 @@ export const ShipmentBoard = () => {
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-2">
               <p>
-                O comprovante de pagamento do motorista não foi anexado. 
+                O comprovante de pagamento do motorista não foi anexado.
               </p>
               <p className="font-medium text-foreground">
                 Deseja iniciar a corrida mesmo assim?
@@ -323,7 +289,7 @@ export const ShipmentBoard = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <CreateShipmentDialog 
+      <CreateShipmentDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
       />
@@ -336,31 +302,31 @@ export const ShipmentBoard = () => {
           <p className="text-muted-foreground">
             Acompanhe o status de todas as ofertas
           </p>
-      </div>
-      
-      <div className="flex items-center gap-3">
-        <Button 
-          className="bg-gradient-primary"
-          onClick={() => setCreateDialogOpen(true)}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Nova Oferta
-        </Button>
-        
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Período:</span>
-          <Select value={periodFilter} onValueChange={(value: any) => setPeriodFilter(value)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Período" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Hoje</SelectItem>
-              <SelectItem value="month">Este Mês</SelectItem>
-              <SelectItem value="all">Total</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
-      </div>
+
+        <div className="flex items-center gap-3">
+          <Button
+            className="bg-gradient-primary"
+            onClick={() => setCreateDialogOpen(true)}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Nova Oferta
+          </Button>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Período:</span>
+            <Select value={periodFilter} onValueChange={(value: any) => setPeriodFilter(value)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Período" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Hoje</SelectItem>
+                <SelectItem value="month">Este Mês</SelectItem>
+                <SelectItem value="all">Total</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
 
       <ShipmentViewControls
@@ -405,8 +371,8 @@ export const ShipmentBoard = () => {
                           <CardTitle className="text-sm font-medium">
                             {shipment.cargo}
                           </CardTitle>
-                          <ShipmentTimer 
-                            deadline={shipment.deadline} 
+                          <ShipmentTimer
+                            deadline={shipment.deadline}
                             className="text-muted-foreground"
                             highlight={column.status === "waiting_confirmation"}
                             realtime={column.status === "waiting_confirmation"}
@@ -538,8 +504,8 @@ export const ShipmentBoard = () => {
 
                         {column.status === "waiting_confirmation" && (
                           <div className="flex gap-2 pt-2">
-                            <Button 
-                              className="flex-1 bg-gradient-success hover:opacity-90" 
+                            <Button
+                              className="flex-1 bg-gradient-success hover:opacity-90"
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -557,8 +523,8 @@ export const ShipmentBoard = () => {
 
                         {column.status === "confirmed" && (
                           <div className="flex gap-2 pt-2">
-                            <Button 
-                              className="flex-1 bg-gradient-primary hover:opacity-90" 
+                            <Button
+                              className="flex-1 bg-gradient-primary hover:opacity-90"
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -579,7 +545,7 @@ export const ShipmentBoard = () => {
                   <Pagination>
                     <PaginationContent>
                       <PaginationItem>
-                        <PaginationPrevious 
+                        <PaginationPrevious
                           onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                           className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                         />
@@ -596,7 +562,7 @@ export const ShipmentBoard = () => {
                         </PaginationItem>
                       ))}
                       <PaginationItem>
-                        <PaginationNext 
+                        <PaginationNext
                           onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                           className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
                         />
@@ -631,13 +597,13 @@ export const ShipmentBoard = () => {
                     onViewDetails={handleViewDetails}
                     onDriverClick={handleDriverClick}
                   />
-                  
+
                   {totalPages > 1 && (
                     <div className="mt-4">
                       <Pagination>
                         <PaginationContent>
                           <PaginationItem>
-                            <PaginationPrevious 
+                            <PaginationPrevious
                               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                               className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                             />
@@ -654,7 +620,7 @@ export const ShipmentBoard = () => {
                             </PaginationItem>
                           ))}
                           <PaginationItem>
-                            <PaginationNext 
+                            <PaginationNext
                               onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                               className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
                             />

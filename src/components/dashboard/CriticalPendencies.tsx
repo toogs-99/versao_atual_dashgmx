@@ -4,11 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { useOperationalAlerts } from "@/hooks/useOperationalAlerts";
 import { useEmbarques } from "@/hooks/useEmbarques";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { 
-  AlertTriangle, 
-  Clock, 
-  FileText, 
+// import { supabase } from "@/integrations/supabase/client";
+import {
+  AlertTriangle,
+  Clock,
+  FileText,
   UserX,
   CheckCircle2,
   AlertCircle,
@@ -29,26 +29,19 @@ export function CriticalPendencies() {
   const { data: inactiveDrivers = [] } = useQuery({
     queryKey: ['inactive-drivers'],
     queryFn: async () => {
-      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-      const { data, error } = await supabase
-        .from('drivers')
-        .select('*')
-        .eq('status', 'active')
-        .lt('last_update', twoHoursAgo);
-      
-      if (error) throw error;
-      return data || [];
+      // MOCK DATA
+      return []; // No inactive drivers for mock
     },
   });
 
   // Calculate critical metrics
-  const shipmentsNoResponse = embarques.filter(e => 
-    e.status === 'new' && 
+  const shipmentsNoResponse = embarques.filter(e =>
+    e.status === 'new' &&
     new Date(e.created_at).getTime() < Date.now() - 5 * 60 * 60 * 1000
   );
 
-  const shipmentsNoDocuments = embarques.filter(e => 
-    ['in_transit', 'completed'].includes(e.status) && 
+  const shipmentsNoDocuments = embarques.filter(e =>
+    ['in_transit', 'completed'].includes(e.status) &&
     !e.delivery_date
   );
 
@@ -157,7 +150,7 @@ export function CriticalPendencies() {
 
           {/* Alertas Críticos */}
           {criticalAlerts.map((alert) => (
-            <div 
+            <div
               key={alert.id}
               className="flex items-center justify-between p-4 bg-background rounded-lg border border-destructive/20 cursor-pointer hover:bg-accent/50"
               onClick={() => setSelectedAlert(alert)}
@@ -183,7 +176,7 @@ export function CriticalPendencies() {
 
           {/* Alertas de Alta Prioridade */}
           {highAlerts.slice(0, 3).map((alert) => (
-            <div 
+            <div
               key={alert.id}
               className="flex items-center justify-between p-4 bg-background rounded-lg border border-orange-500/20 cursor-pointer hover:bg-accent/50"
               onClick={() => setSelectedAlert(alert)}

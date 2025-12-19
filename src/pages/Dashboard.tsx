@@ -22,6 +22,7 @@ import {
   Settings,
   ClipboardList,
   Activity,
+  Book,
 } from "lucide-react";
 
 const Dashboard = () => {
@@ -45,64 +46,70 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+            <a href="/swagger-ui.html" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-primary transition-colors border px-3 py-2 rounded-md bg-background/50">
+              <Book className="h-4 w-4" />
+              Swagger UI
+            </a>
+          </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-6">
         <Tabs defaultValue="stats" className="space-y-6">
           <div className="bg-card border rounded-lg p-2 shadow-sm">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 gap-1 bg-transparent h-auto">
-              <TabsTrigger 
-                value="stats" 
+            <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 gap-1 bg-transparent h-auto">
+              <TabsTrigger
+                value="stats"
                 className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
                 <BarChart3 className="h-5 w-5" />
                 <span className="text-xs sm:text-sm font-medium">Dashboard</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="registry" 
+              <TabsTrigger
+                value="registry"
                 className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
                 <Users className="h-5 w-5" />
                 <span className="text-xs sm:text-sm font-medium">Cadastros</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="available" 
+              <TabsTrigger
+                value="available"
                 className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
                 <UserCheck className="h-5 w-5" />
                 <span className="text-xs sm:text-sm font-medium">Disponíveis</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="shipments" 
+              <TabsTrigger
+                value="shipments"
                 className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
                 <Package className="h-5 w-5" />
                 <span className="text-xs sm:text-sm font-medium">Embarques</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="history" 
+              <TabsTrigger
+                value="history"
                 className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
                 <History className="h-5 w-5" />
                 <span className="text-xs sm:text-sm font-medium">Histórico</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="follow" 
+              <TabsTrigger
+                value="follow"
                 className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
                 <ClipboardList className="h-5 w-5" />
                 <span className="text-xs sm:text-sm font-medium">Follow</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="operators" 
+              <TabsTrigger
+                value="operators"
                 className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
                 <Activity className="h-5 w-5" />
                 <span className="text-xs sm:text-sm font-medium">Operadores</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="users" 
+              <TabsTrigger
+                value="users"
                 className="flex-col sm:flex-row gap-1 sm:gap-2 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
                 <Settings className="h-5 w-5" />
@@ -111,14 +118,14 @@ const Dashboard = () => {
             </TabsList>
           </div>
 
-        <TabsContent value="stats" className="space-y-6">
-          <CriticalPendencies />
-          <GlobalMatchingPanel />
-          <StatsDashboard />
-          <EnhancedVehicleTimeline />
-          <LogisticsSaturationMap />
-          <DailyVehicleProposals />
-        </TabsContent>
+          <TabsContent value="stats" className="space-y-6">
+            <CriticalPendencies />
+            <GlobalMatchingPanel />
+            <StatsDashboard />
+            <EnhancedVehicleTimeline />
+            <LogisticsSaturationMap />
+            <DailyVehicleProposals />
+          </TabsContent>
 
           <TabsContent value="registry" className="space-y-6">
             <DynamicDriverRegistry />

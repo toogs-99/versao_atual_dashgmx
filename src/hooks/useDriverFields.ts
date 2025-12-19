@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 
 export interface FieldConfig {
   id: string;
@@ -19,42 +18,25 @@ export const useDriverFields = () => {
 
   useEffect(() => {
     fetchFieldConfig();
-
-    // Subscribe to real-time changes
-    const channel = supabase
-      .channel('field-config-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'driver_field_config'
-        },
-        () => {
-          fetchFieldConfig();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // Realtime removed
   }, []);
 
   const fetchFieldConfig = async () => {
     try {
-      const { data, error } = await supabase
-        .from("driver_field_config")
-        .select("*")
-        .order("display_order", { ascending: true });
+      // MOCK DATA
+      const mockFields: FieldConfig[] = [
+        { id: "1", field_name: "truck_plate", display_name: "Placas", visible_in_card: true, visible_in_table: true, display_order: 1, field_type: "text" },
+        { id: "2", field_name: "vehicle_type", display_name: "Tipo de Veículo", visible_in_card: true, visible_in_table: true, display_order: 2, field_type: "select" },
+        { id: "3", field_name: "current_location", display_name: "Localização", visible_in_card: true, visible_in_table: true, display_order: 3, field_type: "text" },
+        { id: "4", field_name: "phone", display_name: "Telefone", visible_in_card: true, visible_in_table: true, display_order: 4, field_type: "text" },
+        { id: "5", field_name: "city", display_name: "Cidade", visible_in_card: true, visible_in_table: true, display_order: 5, field_type: "text" },
+        { id: "6", field_name: "state", display_name: "Estado", visible_in_card: true, visible_in_table: true, display_order: 6, field_type: "text" },
+      ];
 
-      if (error) throw error;
+      setAllFields(mockFields);
+      setCardFields(mockFields.filter(f => f.visible_in_card));
+      setTableFields(mockFields.filter(f => f.visible_in_table));
 
-      if (data) {
-        setAllFields(data);
-        setCardFields(data.filter(f => f.visible_in_card));
-        setTableFields(data.filter(f => f.visible_in_table));
-      }
     } catch (error) {
       console.error("Error fetching field config:", error);
     } finally {

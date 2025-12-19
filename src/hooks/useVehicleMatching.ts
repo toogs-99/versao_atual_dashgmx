@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+// import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
 
 export interface VehicleMatch {
@@ -23,75 +23,51 @@ export function useVehicleMatching(embarqueId?: string) {
   const { data: matches = [], isLoading } = useQuery({
     queryKey: ['vehicle_matching', embarqueId],
     queryFn: async () => {
-      let query = supabase
-        .from('shipment_vehicle_matching')
-        .select(`
-          *,
-          driver:drivers(*),
-          embarque:embarques(*)
-        `)
-        .order('compatibility_score', { ascending: false });
+      // MOCK DATA
+      const mockMatches: VehicleMatch[] = [
+        {
+          id: 'm1',
+          embarque_id: 'e1',
+          driver_id: 'd1',
+          compatibility_score: 95,
+          compatibility_level: 'high',
+          factors: { location_match: true, equipment_compatible: true },
+          status: 'suggested',
+          created_at: new Date().toISOString(),
+          driver: { name: 'João (MOCK)', truck_plate: 'ABC-1234' }
+        },
+        {
+          id: 'm2',
+          embarque_id: 'e1',
+          driver_id: 'd2',
+          compatibility_score: 75,
+          compatibility_level: 'medium',
+          factors: { equipment_compatible: true },
+          status: 'suggested',
+          created_at: new Date().toISOString(),
+          driver: { name: 'Pedro (MOCK)', truck_plate: 'XYZ-5678' }
+        }
+      ];
 
       if (embarqueId) {
-        query = query.eq('embarque_id', embarqueId);
+        return mockMatches.filter(m => m.embarque_id === embarqueId);
       }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      return data as VehicleMatch[];
+      return mockMatches;
     },
     enabled: !!embarqueId || embarqueId === undefined,
   });
 
   // Set up Realtime subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel('vehicle-matching-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'shipment_vehicle_matching'
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['vehicle_matching'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
+  // Realtime removed
+  useEffect(() => { }, []);
 
   const createMatch = async (match: Omit<VehicleMatch, 'id' | 'created_at'>) => {
-    const { error } = await supabase
-      .from('shipment_vehicle_matching')
-      .insert(match);
-
-    if (error) throw error;
-
+    console.log("Mock Create Match:", match);
     queryClient.invalidateQueries({ queryKey: ['vehicle_matching'] });
   };
 
   const updateMatchStatus = async (matchId: string, status: VehicleMatch['status']) => {
-    const updateData: any = { status };
-    
-    if (status === 'offered') {
-      updateData.offered_at = new Date().toISOString();
-    } else if (status === 'accepted' || status === 'rejected') {
-      updateData.response_at = new Date().toISOString();
-    }
-
-    const { error } = await supabase
-      .from('shipment_vehicle_matching')
-      .update(updateData)
-      .eq('id', matchId);
-
-    if (error) throw error;
-
+    console.log("Mock Update Match Status:", matchId, status);
     queryClient.invalidateQueries({ queryKey: ['vehicle_matching'] });
   };
 

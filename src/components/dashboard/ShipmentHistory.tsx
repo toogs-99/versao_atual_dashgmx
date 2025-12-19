@@ -10,7 +10,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { exportToCSV, ExportColumn } from "@/lib/csvExporter";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+
 
 export const ShipmentHistory = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -21,40 +21,40 @@ export const ShipmentHistory = () => {
   const { toast } = useToast();
 
   // Fetch completed shipments from database
+  // Fetch completed shipments from mock data
   useEffect(() => {
     const fetchCompletedShipments = async () => {
       try {
-        const { data, error } = await supabase
-          .from('embarques')
-          .select('*')
-          .eq('status', 'delivered')
-          .order('delivery_date', { ascending: false, nullsFirst: false })
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        // Fetch drivers separately for the shipments that have driver_id
-        const driverIds = [...new Set(data?.map(e => e.driver_id).filter(Boolean))];
-        let driversMap: Record<string, any> = {};
-        
-        if (driverIds.length > 0) {
-          const { data: driversData } = await supabase
-            .from('drivers')
-            .select('id, name, cpf, phone')
-            .in('id', driverIds);
-          
-          if (driversData) {
-            driversMap = driversData.reduce((acc, driver) => {
-              acc[driver.id] = driver;
-              return acc;
-            }, {} as Record<string, any>);
+        // MOCK DATA
+        const mockData = [
+          {
+            id: "1",
+            status: "delivered",
+            delivery_date: new Date().toISOString(),
+            created_at: new Date(Date.now() - 86400000).toISOString(),
+            origin: "São Paulo, SP",
+            destination: "Curitiba, PR",
+            driver_id: "driver1",
+            total_value: 5000,
+            driver: { id: "driver1", name: "João da Silva (MOCK)", cpf: "000.000.000-00", phone: "11999999999" }
+          },
+          {
+            id: "2",
+            status: "delivered",
+            delivery_date: new Date(Date.now() - 172800000).toISOString(),
+            created_at: new Date(Date.now() - 259200000).toISOString(),
+            origin: "Belo Horizonte, MG",
+            destination: "Rio de Janeiro, RJ",
+            driver_id: "driver2",
+            total_value: 7500,
+            driver: { id: "driver2", name: "Maria Oliveira (MOCK)", cpf: "111.111.111-11", phone: "21988888888" }
           }
-        }
+        ];
 
-        const formatted = (data || []).map(embarque => ({
+        const formatted = mockData.map(embarque => ({
           ...embarque,
-          driver: embarque.driver_id ? driversMap[embarque.driver_id] : null,
-          formattedDate: embarque.delivery_date 
+          driver: embarque.driver,
+          formattedDate: embarque.delivery_date
             ? format(new Date(embarque.delivery_date), "dd/MM/yyyy", { locale: ptBR })
             : format(new Date(embarque.created_at), "dd/MM/yyyy", { locale: ptBR }),
           formattedValue: embarque.total_value || 0,
@@ -74,35 +74,15 @@ export const ShipmentHistory = () => {
     };
 
     fetchCompletedShipments();
-
-    // Subscribe to realtime updates
-    const channel = supabase
-      .channel('completed-shipments-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'embarques',
-          filter: 'status=eq.delivered'
-        },
-        () => {
-          fetchCompletedShipments();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // Realtime removed
   }, [toast]);
 
   // Filter shipments
   const filteredShipments = useMemo(() => {
     if (!searchTerm) return completedShipments;
-    
+
     const searchLower = searchTerm.toLowerCase();
-    return completedShipments.filter(shipment => 
+    return completedShipments.filter(shipment =>
       shipment.id?.toLowerCase().includes(searchLower) ||
       shipment.origin?.toLowerCase().includes(searchLower) ||
       shipment.destination?.toLowerCase().includes(searchLower) ||
@@ -122,7 +102,7 @@ export const ShipmentHistory = () => {
     ];
 
     exportToCSV(filteredShipments, columns, "historico-embarques");
-    
+
     toast({
       title: "Exportação concluída",
       description: "Histórico exportado com sucesso!",
@@ -191,8 +171,8 @@ export const ShipmentHistory = () => {
           {filteredShipments.length === 0 ? (
             <div className="p-8 text-center">
               <p className="text-muted-foreground">
-                {searchTerm 
-                  ? "Nenhum embarque encontrado com os filtros aplicados." 
+                {searchTerm
+                  ? "Nenhum embarque encontrado com os filtros aplicados."
                   : "Nenhum embarque concluído ainda."}
               </p>
             </div>
@@ -248,8 +228,8 @@ export const ShipmentHistory = () => {
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleViewDetails(shipment)}
                         >

@@ -2,11 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { 
-  Truck, 
-  MapPin, 
-  Clock, 
+// import { supabase } from "@/integrations/supabase/client";
+import {
+  Truck,
+  MapPin,
+  Clock,
   Calendar,
   TrendingUp,
   AlertCircle,
@@ -42,31 +42,42 @@ export function EnhancedVehicleTimeline() {
   const { data: journeys = [], isLoading } = useQuery({
     queryKey: ['vehicle-journeys'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('vehicle_journeys')
-        .select(`
-          *,
-          driver:drivers(*),
-          embarque:embarques(*)
-        `)
-        .in('current_status', ['loading', 'in_transit', 'unloading'])
-        .order('departure_time', { ascending: false });
-
-      if (error) throw error;
-      return data as VehicleJourney[];
+      // MOCK DATA
+      return [
+        {
+          id: 'vj1',
+          driver_id: 'd1',
+          embarque_id: 'e1',
+          departure_time: new Date(Date.now() - 7200000).toISOString(),
+          estimated_arrival: new Date(Date.now() + 3600000).toISOString(),
+          current_status: 'in_transit',
+          is_on_time: true,
+          driver: { name: 'João (MOCK)', truck_plate: 'ABC-1234', vehicle_type: 'Truck' },
+          embarque: { origin: 'São Paulo, SP', destination: 'Rio de Janeiro, RJ' },
+          route_lead_time: '5h'
+        },
+        {
+          id: 'vj2',
+          driver_id: 'd2',
+          embarque_id: 'e2',
+          departure_time: new Date(Date.now() - 108000000).toISOString(),
+          estimated_arrival: new Date(Date.now() - 3600000).toISOString(), // Atrasado
+          current_status: 'loading',
+          is_on_time: false,
+          driver: { name: 'Maria (MOCK)', truck_plate: 'XYZ-9876', vehicle_type: 'Truck' },
+          embarque: { origin: 'Belo Horizonte, MG', destination: 'São Paulo, SP' },
+          route_lead_time: '7h'
+        }
+      ] as VehicleJourney[];
     },
   });
 
   const handleAddJustification = async () => {
     if (!selectedJourney || !justification) return;
 
-    const { error } = await supabase
-      .from('vehicle_journeys')
-      .update({
-        delay_justification: justification,
-        justification_added_at: new Date().toISOString(),
-      })
-      .eq('id', selectedJourney.id);
+    // MOCK UPDATE
+    console.log("Mock update justification:", selectedJourney.id, justification);
+    const error = null;
 
     if (error) {
       toast({
@@ -111,7 +122,7 @@ export function EnhancedVehicleTimeline() {
     const diffMs = eta.getTime() - now.getTime();
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    
+
     if (diffMs < 0) {
       return { text: 'Atrasado', color: 'text-destructive', hours: diffHours, minutes: diffMinutes };
     } else if (diffHours < 2) {
@@ -125,11 +136,11 @@ export function EnhancedVehicleTimeline() {
     const eta = new Date(estimatedArrival);
     // Adiciona 2h para descarga e 1h para disponibilização
     eta.setHours(eta.getHours() + 3);
-    return eta.toLocaleString('pt-BR', { 
-      day: '2-digit', 
-      month: '2-digit', 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    return eta.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -167,7 +178,7 @@ export function EnhancedVehicleTimeline() {
               const eta = calculateETA(journey.estimated_arrival);
               const nextAvailability = calculateNextAvailability(journey.estimated_arrival);
               const isDelayed = !journey.is_on_time;
-              
+
               return (
                 <Card key={journey.id} className={`${isDelayed ? 'border-yellow-500/50' : ''}`}>
                   <CardContent className="pt-6">
@@ -214,7 +225,7 @@ export function EnhancedVehicleTimeline() {
                       {/* Timeline */}
                       <div className="relative pl-8 space-y-4">
                         <div className="absolute left-2 top-2 bottom-2 w-0.5 bg-border" />
-                        
+
                         {/* Departure */}
                         <div className="relative">
                           <div className="absolute -left-[26px] h-4 w-4 rounded-full bg-green-500 border-2 border-background" />

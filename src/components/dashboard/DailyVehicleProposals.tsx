@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+// import { supabase } from "@/integrations/supabase/client";
 import { Truck, Download, Calendar, MapPin, Package, CheckCircle, Clock } from "lucide-react";
 import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,31 +19,45 @@ export function DailyVehicleProposals() {
   const { data: offers, isLoading: offersLoading } = useQuery({
     queryKey: ['daily_vehicle_offers', selectedDate, clientFilter],
     queryFn: async () => {
-      let query = supabase
-        .from('daily_vehicle_offers')
-        .select(`
-          *,
-          driver:drivers(*)
-        `)
-        .eq('date', selectedDate);
-
-      if (clientFilter !== 'all') {
-        query = query.contains('suggested_clients', [clientFilter]);
-      }
-
-      const { data, error } = await query.order('available_at', { ascending: true });
-      
-      if (error) throw error;
-      return data || [];
+      // MOCK DATA
+      return [
+        {
+          id: 'offer1',
+          date: selectedDate,
+          driver_id: 'd1',
+          vehicle_type: 'Truck',
+          current_location: 'São Paulo, SP',
+          available_at: new Date().toISOString(),
+          compatible_products: ['Farinha', 'Açúcar'],
+          suggested_clients: ['Cliente A', 'Cliente B'],
+          offer_status: 'pending',
+          driver: { name: 'João (MOCK)', truck_plate: 'ABC-1234', status: 'active' }
+        },
+        {
+          id: 'offer2',
+          date: selectedDate,
+          driver_id: 'd2',
+          vehicle_type: 'Carreta',
+          current_location: 'Curitiba, PR',
+          available_at: new Date(Date.now() + 3600000).toISOString(),
+          compatible_products: ['Grãos', 'Soja'],
+          suggested_clients: ['Cliente C'],
+          offer_status: 'sent',
+          driver: { name: 'Maria (MOCK)', truck_plate: 'XYZ-9876', status: 'inactive' }
+        }
+      ].map(o => {
+        if (clientFilter !== 'all' && !(o.suggested_clients as string[]).includes(clientFilter)) return null;
+        return o;
+      }).filter(Boolean);
     },
   });
 
   // Get unique clients from offers
   const availableClients = Array.from(
     new Set(
-      offers?.flatMap(offer => 
-        Array.isArray(offer.suggested_clients) 
-          ? offer.suggested_clients.map(c => String(c)) 
+      offers?.flatMap(offer =>
+        Array.isArray(offer.suggested_clients)
+          ? offer.suggested_clients.map(c => String(c))
           : []
       ) || []
     )
@@ -66,9 +80,9 @@ export function DailyVehicleProposals() {
         offer.available_at ? format(new Date(offer.available_at), 'dd/MM HH:mm', { locale: ptBR }) : 'Imediato',
         Array.isArray(offer.compatible_products) ? offer.compatible_products.join(', ') : 'N/A',
         Array.isArray(offer.suggested_clients) ? offer.suggested_clients.join(', ') : 'N/A',
-        offer.offer_status === 'pending' ? 'Pendente' : 
-        offer.offer_status === 'sent' ? 'Enviado' : 
-        offer.offer_status === 'accepted' ? 'Aceito' : 'Rejeitado'
+        offer.offer_status === 'pending' ? 'Pendente' :
+          offer.offer_status === 'sent' ? 'Enviado' :
+            offer.offer_status === 'accepted' ? 'Aceito' : 'Rejeitado'
       ].join(';'))
     ].join('\n');
 
@@ -119,9 +133,9 @@ export function DailyVehicleProposals() {
             <Calendar className="h-5 w-5" />
             Propostas Diárias de Veículos Disponíveis
           </CardTitle>
-          <Button 
-            onClick={handleExportProposals} 
-            variant="outline" 
+          <Button
+            onClick={handleExportProposals}
+            variant="outline"
             size="sm"
             disabled={!offers || offers.length === 0}
           >
@@ -191,7 +205,7 @@ export function DailyVehicleProposals() {
                   <div className="flex items-center gap-2 text-sm">
                     <Clock className="h-4 w-4 text-muted-foreground" />
                     <span>
-                      {offer.available_at 
+                      {offer.available_at
                         ? format(new Date(offer.available_at), 'dd/MM HH:mm', { locale: ptBR })
                         : 'Disponível agora'}
                     </span>
