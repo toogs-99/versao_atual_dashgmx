@@ -1,6 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-// import { supabase } from "@/integrations/supabase/client";
+import { directus } from "@/lib/directus";
+import { readItems, createItem, updateItem } from "@directus/sdk";
 import { useEffect } from "react";
+import { toast } from "sonner";
 
 export interface VehicleMatch {
   id: string;
@@ -23,52 +25,54 @@ export function useVehicleMatching(embarqueId?: string) {
   const { data: matches = [], isLoading } = useQuery({
     queryKey: ['vehicle_matching', embarqueId],
     queryFn: async () => {
-      // MOCK DATA
-      const mockMatches: VehicleMatch[] = [
-        {
-          id: 'm1',
-          embarque_id: 'e1',
-          driver_id: 'd1',
-          compatibility_score: 95,
-          compatibility_level: 'high',
-          factors: { location_match: true, equipment_compatible: true },
-          status: 'suggested',
-          created_at: new Date().toISOString(),
-          driver: { name: 'João (MOCK)', truck_plate: 'ABC-1234' }
-        },
-        {
-          id: 'm2',
-          embarque_id: 'e1',
-          driver_id: 'd2',
-          compatibility_score: 75,
-          compatibility_level: 'medium',
-          factors: { equipment_compatible: true },
-          status: 'suggested',
-          created_at: new Date().toISOString(),
-          driver: { name: 'Pedro (MOCK)', truck_plate: 'XYZ-5678' }
-        }
-      ];
+      try {
+        const filter: any = {};
+        if (embarqueId) filter.embarque_id = { _eq: embarqueId };
 
-      if (embarqueId) {
-        return mockMatches.filter(m => m.embarque_id === embarqueId);
+        const response = await directus.request(readItems('vehicle_matches', {
+          filter,
+          fields: ['*', 'driver_id.*', 'embarque_id.*'],
+          sort: ['-compatibility_score' as any]
+        }));
+
+        return response.map((m: any) => ({
+          ...m,
+          driver: m.driver_id ? { ...m.driver_id, name: m.driver_id.nome } : undefined, // Map driver_id to driver object
+          embarque: m.embarque_id
+        })) as VehicleMatch[];
+
+      } catch (err) {
+        console.error("Error fetching matches:", err);
+        return [];
       }
-      return mockMatches;
     },
     enabled: !!embarqueId || embarqueId === undefined,
   });
 
-  // Set up Realtime subscription
-  // Realtime removed
-  useEffect(() => { }, []);
-
   const createMatch = async (match: Omit<VehicleMatch, 'id' | 'created_at'>) => {
-    console.log("Mock Create Match:", match);
-    queryClient.invalidateQueries({ queryKey: ['vehicle_matching'] });
+    try {
+      await directus.request(createItem('vehicle_matches', {
+        ...match,
+        driver_id: parseInt(match.driver_id), // Ensure INT
+        embarque_id: parseInt(match.embarque_id) // Ensure INT
+      }));
+      toast.success('Match criado com sucesso!');
+      queryClient.invalidateQueries({ queryKey: ['vehicle_matching'] });
+    } catch (err) {
+      console.error("Error creating match:", err);
+      toast.error('Erro ao criar match');
+    }
   };
 
   const updateMatchStatus = async (matchId: string, status: VehicleMatch['status']) => {
-    console.log("Mock Update Match Status:", matchId, status);
-    queryClient.invalidateQueries({ queryKey: ['vehicle_matching'] });
+    try {
+      await directus.request(updateItem('vehicle_matches', matchId, { status }));
+      toast.success('Status do match atualizado!');
+      queryClient.invalidateQueries({ queryKey: ['vehicle_matching'] });
+    } catch (err) {
+      console.error("Error updating match:", err);
+      toast.error('Erro ao atualizar match');
+    }
   };
 
   const highMatches = matches.filter(m => m.compatibility_level === 'high');

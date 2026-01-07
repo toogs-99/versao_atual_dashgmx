@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { directus } from "@/lib/directus";
+import { readItems } from "@directus/sdk";
 
 export interface FieldConfig {
   id: string;
@@ -23,19 +25,17 @@ export const useDriverFields = () => {
 
   const fetchFieldConfig = async () => {
     try {
-      // MOCK DATA
-      const mockFields: FieldConfig[] = [
-        { id: "1", field_name: "truck_plate", display_name: "Placas", visible_in_card: true, visible_in_table: true, display_order: 1, field_type: "text" },
-        { id: "2", field_name: "vehicle_type", display_name: "Tipo de Veículo", visible_in_card: true, visible_in_table: true, display_order: 2, field_type: "select" },
-        { id: "3", field_name: "current_location", display_name: "Localização", visible_in_card: true, visible_in_table: true, display_order: 3, field_type: "text" },
-        { id: "4", field_name: "phone", display_name: "Telefone", visible_in_card: true, visible_in_table: true, display_order: 4, field_type: "text" },
-        { id: "5", field_name: "city", display_name: "Cidade", visible_in_card: true, visible_in_table: true, display_order: 5, field_type: "text" },
-        { id: "6", field_name: "state", display_name: "Estado", visible_in_card: true, visible_in_table: true, display_order: 6, field_type: "text" },
-      ];
+      setIsLoading(true);
+      const data = await directus.request(readItems('driver_field_config', {
+        sort: ['display_order' as any]
+      }));
 
-      setAllFields(mockFields);
-      setCardFields(mockFields.filter(f => f.visible_in_card));
-      setTableFields(mockFields.filter(f => f.visible_in_table));
+      // Map Directus fields if names differ, but my schema matches the interface exactly
+      const fields = data as unknown as FieldConfig[];
+
+      setAllFields(fields);
+      setCardFields(fields.filter(f => f.visible_in_card));
+      setTableFields(fields.filter(f => f.visible_in_table));
 
     } catch (error) {
       console.error("Error fetching field config:", error);

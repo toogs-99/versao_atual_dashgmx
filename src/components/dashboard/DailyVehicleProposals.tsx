@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
-// import { supabase } from "@/integrations/supabase/client";
+import { directus } from "@/lib/directus";
+import { readItems } from "@directus/sdk";
 import { Truck, Download, Calendar, MapPin, Package, CheckCircle, Clock } from "lucide-react";
 import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,40 +16,62 @@ export function DailyVehicleProposals() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [clientFilter, setClientFilter] = useState<string>('all');
 
-  // Fetch daily vehicle offers
+  // Fetch daily vehicle offers (matches)
   const { data: offers, isLoading: offersLoading } = useQuery({
     queryKey: ['daily_vehicle_offers', selectedDate, clientFilter],
     queryFn: async () => {
-      // MOCK DATA
-      return [
-        {
-          id: 'offer1',
-          date: selectedDate,
-          driver_id: 'd1',
-          vehicle_type: 'Truck',
-          current_location: 'São Paulo, SP',
-          available_at: new Date().toISOString(),
-          compatible_products: ['Farinha', 'Açúcar'],
-          suggested_clients: ['Cliente A', 'Cliente B'],
-          offer_status: 'pending',
-          driver: { name: 'João (MOCK)', truck_plate: 'ABC-1234', status: 'active' }
-        },
-        {
-          id: 'offer2',
-          date: selectedDate,
-          driver_id: 'd2',
-          vehicle_type: 'Carreta',
-          current_location: 'Curitiba, PR',
-          available_at: new Date(Date.now() + 3600000).toISOString(),
-          compatible_products: ['Grãos', 'Soja'],
-          suggested_clients: ['Cliente C'],
-          offer_status: 'sent',
-          driver: { name: 'Maria (MOCK)', truck_plate: 'XYZ-9876', status: 'inactive' }
-        }
-      ].map(o => {
-        if (clientFilter !== 'all' && !(o.suggested_clients as string[]).includes(clientFilter)) return null;
-        return o;
-      }).filter(Boolean);
+      try {
+        const startOfDay = new Date(selectedDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(selectedDate);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        // Fetch matches created within the selected date
+        const data = await directus.request(readItems('vehicle_matches', {
+          filter: {
+            created_at: {
+              _between: [startOfDay.toISOString(), endOfDay.toISOString()]
+            }
+          },
+          fields: ['*', 'driver_id.*', 'embarque_id.*', 'driver_id.cavadlo_id.*'], // Expand driver and potential shipment
+          sort: ['-created_at']
+        }));
+
+        const mappedOffers = data.map((match: any) => {
+          // Logic to determine "suggested clients" - likely from the shipment (embarque) if matched, 
+          // or just placeholder if purely a proactive suggestion. 
+          // If match is linked to an embarque, the "client" is the embarque origin/destination or a client field.
+          // Let's assume embarque has client info.
+
+          const clientName = match.embarque_id?.destinatario || 'Cliente Sugerido';
+
+          return {
+            id: match.id,
+            date: match.created_at,
+            driver_id: match.driver_id?.id,
+            vehicle_type: match.driver_id?.tipo_veiculo || 'N/A',
+            current_location: match.driver_id?.localizacao_atual || 'Não Informado',
+            available_at: match.created_at, // Using creation time as availability time proxy
+            compatible_products: match.factors?.compatible_products || [], // Accessing JSON factor for products if exists
+            suggested_clients: [clientName],
+            offer_status: match.status,
+            driver: {
+              name: `${match.driver_id?.nome || ''} ${match.driver_id?.sobrenome || ''}`,
+              truck_plate: match.driver_id?.placa || 'N/A',
+              status: match.driver_id?.status || 'active'
+            }
+          };
+        });
+
+        return mappedOffers.filter((o: any) => {
+          if (clientFilter !== 'all' && !o.suggested_clients.includes(clientFilter)) return false;
+          return true;
+        });
+
+      } catch (err) {
+        console.error("Error fetching vehicle offers:", err);
+        return [];
+      }
     },
   });
 

@@ -202,50 +202,7 @@ export const ShipmentBoard = () => {
     );
   }
 
-  // Empty state
-  const totalShipments = shipmentColumns.reduce((acc, col) => acc + col.shipments.length, 0);
-  if (totalShipments === 0) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">
-              Embarques - Ofertas de Fretes
-            </h2>
-            <p className="text-muted-foreground">
-              Acompanhe o status de todas as ofertas
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Período:</span>
-            <Select value={periodFilter} onValueChange={(value: any) => setPeriodFilter(value)}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Selecione o período" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Hoje</SelectItem>
-                <SelectItem value="month">Este Mês</SelectItem>
-                <SelectItem value="all">Total</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <Card className="p-8 text-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="rounded-full bg-muted p-4">
-              <Loader2 className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold">Nenhum embarque encontrado</h3>
-              <p className="text-sm text-muted-foreground">
-                Comece criando seu primeiro embarque
-              </p>
-            </div>
-          </div>
-        </Card>
-      </div>
-    );
-  }
+
 
   return (
     <div className="space-y-6">
@@ -346,15 +303,15 @@ export const ShipmentBoard = () => {
       />
 
       {viewMode === "card" ? (
-        <div className={`grid gap-4 ${focusColumn ? 'md:grid-cols-1' : 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'}`}>
+        <div className={`grid gap-6 ${focusColumn ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}>
           {visibleColumns.map((column) => {
             const paginatedShipments = getPaginatedShipments(column.shipments);
             const totalPages = getTotalPages(column.shipments);
 
             return (
-              <div key={column.status} className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">{column.title}</h3>
+              <div key={column.status} className="flex flex-col h-full bg-slate-100 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-4 shadow-sm">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700">
+                  <h3 className="font-bold text-base text-slate-700 dark:text-slate-200">{column.title}</h3>
                   <Badge className={column.badgeColor}>
                     {column.shipments.length}
                   </Badge>

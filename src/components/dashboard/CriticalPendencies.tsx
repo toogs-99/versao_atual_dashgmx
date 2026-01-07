@@ -201,10 +201,9 @@ export function CriticalPendencies() {
           ))}
 
           {criticalAlerts.length === 0 && highAlerts.length === 0 && shipmentsNoResponse.length === 0 && shipmentsNoDocuments.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              <CheckCircle2 className="h-12 w-12 mx-auto mb-2 text-green-500" />
-              <p className="font-semibold">Nenhuma pendência crítica</p>
-              <p className="text-sm">Tudo em ordem por enquanto</p>
+            <div className="flex items-center justify-center p-4 bg-muted/10 rounded-lg border border-border/40 gap-3">
+              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              <span className="text-sm font-medium text-muted-foreground">Tudo em ordem! Nenhuma pendência crítica no momento.</span>
             </div>
           )}
         </CardContent>

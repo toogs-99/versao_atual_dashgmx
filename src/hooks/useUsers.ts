@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-// import { supabase } from "@/integrations/supabase/client";
+import { directus } from "@/lib/directus";
+import { readItems, createItem, updateItem, deleteItem, createUser as createSystemUser, updateUser as updateSystemUser, deleteUser as deleteSystemUser, readRoles, readUsers } from "@directus/sdk";
 import { useToast } from "@/hooks/use-toast";
 
 export type Permission =
@@ -18,66 +19,54 @@ export interface User {
   role: string;
   permissions: Permission[];
   created_at: string;
+  role_id?: any; // To store full role object
 }
 
-const FAKE_USERS_KEY = "fake_users";
-
-type UserRecord = User;
-
-const getFakeUsers = (): UserRecord[] => {
-  try {
-    const raw = localStorage.getItem(FAKE_USERS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-};
-
-const setFakeUsers = (list: UserRecord[]) => {
-  try {
-    localStorage.setItem(FAKE_USERS_KEY, JSON.stringify(list));
-  } catch { }
-};
-
-const ensureSeededFakeUsers = () => {
-  if (getFakeUsers().length > 0) return;
-  const basePerms = {
-    admin: ["cadastros", "disponiveis", "embarques", "historico", "dashboard", "faq", "usuarios"] as Permission[],
-    responsavel: ["cadastros", "disponiveis", "embarques", "historico", "dashboard", "faq"] as Permission[],
-    user: ["dashboard", "historico", "embarques"] as Permission[],
-  };
-  const names = [
-    "Ana Souza", "Bruno Lima", "Carla Pereira", "Diego Santos", "Eduarda Rocha",
-    "Felipe Alves", "Gabriela Martins", "Henrique Costa", "Isabela Nunes", "João Pedro"
-  ];
-  const roles = ["admin", "responsavel", "user", "user", "responsavel", "user", "admin", "user", "responsavel", "user"] as const;
-  const now = new Date();
-  const seeded = names.map((n, i) => ({
-    id: (crypto as any)?.randomUUID ? (crypto as any).randomUUID() : Math.random().toString(36).slice(2),
-    email: `${n.toLowerCase().replace(/\s+/g, '')}@gmx.com.br`,
-    display_name: n,
-    role: roles[i] as unknown as string,
-    permissions: basePerms[roles[i] as "admin" | "responsavel" | "user"],
-    created_at: new Date(now.getTime() - i * 86400000).toISOString(),
-  }));
-  setFakeUsers(seeded);
-};
 
 export const useUsers = () => {
+  // ... (state permanecem iguais)
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
+  // ... (fetchUsers permanece igual)
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
-      ensureSeededFakeUsers();
-      const fake = getFakeUsers();
-      setUsers(fake);
+      const data = await directus.request(readItems('app_users', {
+        fields: ['*', 'role_id.*', 'permissions'],
+        sort: ['-id' as any]
+      }));
+
+      const mappedUsers = data.map((u: any) => {
+        // Logic for permissions:
+        // 1. If user has direct permissions set (custom), use them.
+        // 2. Else if user has a role, use role permissions.
+        // 3. Else empty.
+
+        let userPerms: Permission[] = [];
+        if (u.permissions && Array.isArray(u.permissions) && u.permissions.length > 0) {
+          userPerms = u.permissions;
+        } else if (u.role_id?.permissions) {
+          userPerms = u.role_id.permissions;
+        }
+
+        return {
+          id: u.id,
+          email: u.email,
+          display_name: u.display_name,
+          role: u.role_id?.name || 'personalizado',
+          permissions: userPerms,
+          created_at: u.date_created,
+          role_id: u.role_id
+        };
+      });
+
+      setUsers(mappedUsers);
     } catch (error: any) {
-      console.error("Full error:", error);
+      console.error("Error fetching users:", error);
       toast({
-        title: "Erro ao carregar usuários (Mock)",
+        title: "Erro ao carregar usuários",
         description: error.message,
         variant: "destructive"
       });
@@ -88,84 +77,168 @@ export const useUsers = () => {
 
   useEffect(() => {
     fetchUsers();
-    // Realtime removed
   }, []);
 
-  const createUser = async (email: string, password: string, displayName: string, role: string, permissions: Permission[]) => {
+  const updateUser = async (userId: string, displayName?: string, roleName?: string, permissions?: Permission[]) => {
     try {
-      const id = (crypto as any)?.randomUUID ? (crypto as any).randomUUID() : Math.random().toString(36).slice(2);
-      const newUser: User = {
-        id,
-        email,
-        display_name: displayName,
-        role,
-        permissions,
-        created_at: new Date().toISOString()
-      };
-      const current = getFakeUsers();
-      setFakeUsers([newUser, ...current]);
-      setUsers(prev => [newUser, ...prev]);
+      const updateData: any = {};
+      if (displayName) updateData.display_name = displayName;
+
+      if (roleName) {
+        if (roleName !== 'personalizado') {
+          const roles = await directus.request(readItems('app_roles', {
+            filter: { name: { _eq: roleName } }
+          }));
+          if (roles.length > 0) {
+            updateData.role_id = roles[0].id;
+            updateData.permissions = null; // Reset perms if assigning a standard role
+          }
+        } else {
+          updateData.role_id = null; // Detach role
+          // If switching to personalized, we expect permissions to be passed
+          if (permissions) {
+            updateData.permissions = permissions;
+          }
+        }
+      } else {
+        // If only updating permissions (without changing role mode explicitly, or if already personalized)
+        if (permissions) {
+          updateData.permissions = permissions;
+        }
+      }
+
+      await directus.request(updateItem('app_users', userId, updateData));
+
       toast({
-        title: "Usuário criado com sucesso",
-        description: `${displayName} foi adicionado ao sistema`
+        title: "Usuário atualizado",
+        description: "Alterações salvas"
       });
-      return newUser;
+      fetchUsers();
     } catch (error: any) {
       toast({
-        title: "Erro ao criar usuário",
-        description: error.message || "Falha ao criar usuário",
+        title: "Erro ao atualizar",
+        description: error.message,
         variant: "destructive"
       });
       throw error;
     }
   };
 
-  const updateUser = async (userId: string, displayName?: string, role?: string, permissions?: Permission[]) => {
+  const createUser = async (email: string, password: string, displayName: string, roleName: string, permissions: Permission[]) => {
     try {
-      const list = getFakeUsers();
-      const idx = list.findIndex(u => u.id === userId);
-      if (idx !== -1) {
-        const updated: User = {
-          ...list[idx],
-          display_name: displayName ?? list[idx].display_name,
-          role: role ?? list[idx].role,
-          permissions: permissions ?? list[idx].permissions,
-        };
-        const newList = [...list];
-        newList[idx] = updated;
-        setFakeUsers(newList);
-        setUsers(prev => prev.map(u => u.id === userId ? updated : u));
-        toast({
-          title: "Usuário atualizado",
-          description: "As alterações foram salvas"
-        });
-        return;
+      // 1. Resolver ID do Cargo (App Role) e Permissões
+      let roleId = null;
+      let finalPermissions = null;
+
+      if (roleName !== 'personalizado') {
+        const roles = await directus.request(readItems('app_roles', {
+          filter: { name: { _eq: roleName } }
+        }));
+        if (roles && roles.length > 0) {
+          roleId = roles[0].id;
+          // If using a role, we don't save DB permissions typically, UNLESS we want overrides. 
+          // For now, let's keep it simple: Role = Role Perms. Custom = Custom Perms.
+        } else {
+          console.warn(`Role ${roleName} not found via name search.`);
+        }
+      } else {
+        // Personalized mode
+        finalPermissions = permissions;
       }
-      // No-op in fake mode if user not found
-    } catch (error: any) {
+
+      console.log(`Creating user with Role ID: ${roleId} (Name: ${roleName}), Perms:`, finalPermissions);
+
+      // 2. Criar Usuário de Autenticação (System User)
+      const KNOWN_ADMIN_ROLE_ID = '00cc7390-e50f-4ea1-bf3b-99f70b777d2e';
+
+      const systemUserPayload = {
+        email,
+        password,
+        first_name: displayName.split(' ')[0],
+        last_name: displayName.split(' ').slice(1).join(' '),
+        role: KNOWN_ADMIN_ROLE_ID,
+        status: 'active'
+      };
+
+      await directus.request(createSystemUser(systemUserPayload));
+
+      // 3. Criar Perfil da Aplicação (App User)
+      const appUserPayload: any = {
+        email,
+        display_name: displayName,
+        role_id: roleId,
+        active: true
+      };
+
+      if (finalPermissions) {
+        appUserPayload.permissions = finalPermissions;
+      }
+
+      await directus.request(createItem('app_users', appUserPayload));
+
       toast({
-        title: "Erro ao atualizar usuário",
-        description: error.message || "Falha ao atualizar usuário",
+        title: "Usuário criado com sucesso",
+        description: `Login: ${email}`
+      });
+      fetchUsers();
+    } catch (error: any) {
+      console.error("Create user error:", error);
+      let msg = error.message;
+      if (error?.errors?.[0]?.extensions?.code === 'RECORD_NOT_UNIQUE') {
+        msg = "Este e-mail já está em uso.";
+      }
+      toast({
+        title: "Erro ao criar",
+        description: msg,
         variant: "destructive"
       });
       throw error;
     }
   };
+
+  // ... updateUser remains similar
 
   const deleteUser = async (userId: string) => {
     try {
-      const list = getFakeUsers();
-      const newList = list.filter(u => u.id !== userId);
-      setFakeUsers(newList);
-      setUsers(prev => prev.filter(u => u.id !== userId));
+      // 1. Get the app user to find their email
+      const appUser = users.find(u => u.id === userId); // users state usually has string id here
+
+      // We need to fetch the item to be sure if not in state or if state is stale
+      const targetUser = await directus.request(readItems('app_users', {
+        filter: { id: { _eq: userId } },
+        fields: ['email']
+      }));
+
+      const email = targetUser?.[0]?.email;
+
+      if (email) {
+        // 2. Find system user by email
+        // 2. Find system user by email using Core Method
+        const systemUsers = await directus.request(readUsers({
+          filter: { email: { _eq: email } },
+          fields: ['id']
+        }));
+
+        // 3. Delete System User if found
+        if (systemUsers && systemUsers.length > 0) {
+          await directus.request(deleteSystemUser(systemUsers[0].id));
+          console.log(`System user for ${email} deleted.`);
+        }
+      }
+
+      // 4. Delete App Profile
+      await directus.request(deleteItem('app_users', userId));
+
       toast({
         title: "Usuário excluído",
-        description: "O usuário foi removido do sistema"
+        description: "Removido do sistema e login revogado."
       });
+      fetchUsers();
     } catch (error: any) {
+      console.error("Delete Error:", error);
       toast({
-        title: "Erro ao excluir usuário",
-        description: error.message || "Falha ao excluir usuário",
+        title: "Erro ao excluir",
+        description: error.message,
         variant: "destructive"
       });
       throw error;

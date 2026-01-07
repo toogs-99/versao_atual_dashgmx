@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
+import { differenceInHours, differenceInMinutes } from "date-fns";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RealTimeMap } from "./RealTimeMap";
@@ -15,9 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MapPin, RefreshCw, AlertTriangle, Clock, MessageSquare, DollarSign, Package } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { differenceInHours, differenceInMinutes } from "date-fns";
+import { directus } from "@/lib/directus";
+import { readItems } from "@directus/sdk";
 
 export const RealTimeTracking = () => {
   const { toast } = useToast();
@@ -28,26 +29,8 @@ export const RealTimeTracking = () => {
   const [filterDeliveryDate, setFilterDeliveryDate] = useState("");
 
   useEffect(() => {
-    fetchShipments();
-
-    const channel = supabase
-      .channel('tracking-shipments-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'embarques'
-        },
-        () => {
-          fetchShipments();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    fetchShipments(); // Initial fetch
+    // Realtime removed for simple polling for now
   }, []);
 
   useEffect(() => {
@@ -59,38 +42,29 @@ export const RealTimeTracking = () => {
 
   const fetchShipments = async () => {
     try {
-      const { data, error } = await supabase
-        .from("embarques")
-        .select('*')
-        .eq("status", "in_progress")
-        .order("pickup_date", { ascending: true });
-
-      if (error) throw error;
-      
-      // Fetch drivers separately
-      const driverIds = [...new Set(data?.map(e => e.driver_id).filter(Boolean))];
-      let driversMap: Record<string, any> = {};
-      
-      if (driverIds.length > 0) {
-        const { data: driversData } = await supabase
-          .from('drivers')
-          .select('id, name, phone, truck_plate')
-          .in('id', driverIds);
-        
-        if (driversData) {
-          driversMap = driversData.reduce((acc, driver) => {
-            acc[driver.id] = driver;
-            return acc;
-          }, {} as Record<string, any>);
-        }
-      }
-
-      const shipmentsWithDrivers = (data || []).map(shipment => ({
-        ...shipment,
-        drivers: shipment.driver_id ? driversMap[shipment.driver_id] : null
+      // Fetch shipments from Directus
+      const data = await directus.request(readItems('embarques', {
+        filter: {
+          _and: [
+            { status: { _neq: 'completed' } },
+            { status: { _neq: 'cancelled' } }
+          ]
+        },
+        fields: ['*', 'driver_id.*'], // Expand driver details
+        sort: ['pickup_date' as any]
       }));
-      
-      setShipments(shipmentsWithDrivers);
+
+      // No need to manually fetch drivers, Directus handles the relation expansion
+      const shipmentsWithDrivers = (data || []).map((shipment: any) => ({
+        ...shipment,
+        // Ensure status mapping if needed, or use raw status
+        drivers: shipment.driver_id ? {
+          name: shipment.driver_id.nome || shipment.driver_id.name,
+          truck_plate: shipment.driver_id.placa || shipment.driver_id.truck_plate
+        } : null
+      }));
+
+      setShipments(shipmentsWithDrivers as any[]);
     } catch (error) {
       console.error("Error fetching shipments:", error);
       toast({
@@ -105,46 +79,46 @@ export const RealTimeTracking = () => {
 
   const calculateProgress = (shipment: any) => {
     if (!shipment.pickup_date || !shipment.delivery_date) return 0;
-    
+
     const start = new Date(shipment.pickup_date);
     const end = new Date(shipment.delivery_date);
     const now = new Date();
-    
+
     const totalDuration = end.getTime() - start.getTime();
     const elapsed = now.getTime() - start.getTime();
-    
+
     const progress = Math.min(Math.max((elapsed / totalDuration) * 100, 0), 100);
     return Math.round(progress);
   };
 
   const calculateRisk = (shipment: any) => {
     if (!shipment.delivery_date) return "baixo";
-    
+
     const deliveryDate = new Date(shipment.delivery_date);
     const now = new Date();
     const hoursUntilDelivery = differenceInHours(deliveryDate, now);
     const progress = calculateProgress(shipment);
-    
+
     if (hoursUntilDelivery < 0) return "alto";
     if (hoursUntilDelivery < 6 && progress < 80) return "alto";
     if (hoursUntilDelivery < 12 && progress < 60) return "medio";
-    
+
     if (shipment.actual_arrival_time) {
       const arrivalTime = new Date(shipment.actual_arrival_time);
       const waitingHours = differenceInHours(now, arrivalTime);
       if (waitingHours > 2) return "alto";
     }
-    
+
     return "baixo";
   };
 
   const getLastUpdate = (shipment: any) => {
     if (!shipment.last_location_update) return "Sem atualização";
-    
+
     const lastUpdate = new Date(shipment.last_location_update);
     const now = new Date();
     const minutesDiff = differenceInMinutes(now, lastUpdate);
-    
+
     if (minutesDiff < 60) return `Há ${minutesDiff} min`;
     const hoursDiff = Math.floor(minutesDiff / 60);
     return `Há ${hoursDiff}h`;
@@ -204,8 +178,8 @@ export const RealTimeTracking = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input 
-              type="date" 
+            <Input
+              type="date"
               placeholder="Data de Entrega"
               value={filterDeliveryDate}
               onChange={(e) => setFilterDeliveryDate(e.target.value)}
@@ -253,104 +227,103 @@ export const RealTimeTracking = () => {
                 return deliveryDate === filterDeliveryDate;
               })
               .map((shipment) => {
-              const progress = calculateProgress(shipment);
-              const risk = calculateRisk(shipment);
-              const isWaiting = shipment.actual_arrival_time && differenceInHours(new Date(), new Date(shipment.actual_arrival_time)) > 2;
-              
-              return (
-                <Card
-                  key={shipment.id}
-                  className={`shadow-card transition-all hover:shadow-hover ${
-                    isWaiting ? "border-warning border-2" : ""
-                  }`}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-lg font-bold">#{shipment.id?.toString().slice(0, 8)}</h3>
-                          {getStatusBadge(shipment.status)}
-                          {getRiskBadge(risk)}
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Motorista: <span className="font-medium text-foreground">
-                            {shipment.drivers?.name || "Não atribuído"}
-                          </span>
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground mb-1">
-                          <Clock className="h-3 w-3" />
-                          <span>{getLastUpdate(shipment)}</span>
-                        </div>
-                        {isWaiting && (
-                          <Badge className="bg-danger text-danger-foreground gap-1">
-                            <DollarSign className="h-3 w-3" />
-                            Diária Necessária
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
+                const progress = calculateProgress(shipment);
+                const risk = calculateRisk(shipment);
+                const isWaiting = shipment.actual_arrival_time && differenceInHours(new Date(), new Date(shipment.actual_arrival_time)) > 2;
 
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div className="flex items-start gap-2">
-                        <MapPin className="h-4 w-4 text-success mt-0.5" />
+                return (
+                  <Card
+                    key={shipment.id}
+                    className={`shadow-card transition-all hover:shadow-hover ${isWaiting ? "border-warning border-2" : ""
+                      }`}
+                  >
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between mb-4">
                         <div>
-                          <p className="text-xs text-muted-foreground">Origem</p>
-                          <p className="text-sm font-medium">{shipment.origin}</p>
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="text-lg font-bold">#{shipment.id?.toString().slice(0, 8)}</h3>
+                            {getStatusBadge(shipment.status)}
+                            {getRiskBadge(risk)}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Motorista: <span className="font-medium text-foreground">
+                              {shipment.drivers?.name || "Não atribuído"}
+                            </span>
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground mb-1">
+                            <Clock className="h-3 w-3" />
+                            <span>{getLastUpdate(shipment)}</span>
+                          </div>
+                          {isWaiting && (
+                            <Badge className="bg-danger text-danger-foreground gap-1">
+                              <DollarSign className="h-3 w-3" />
+                              Diária Necessária
+                            </Badge>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-start gap-2">
-                        <MapPin className="h-4 w-4 text-danger mt-0.5" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">Destino</p>
-                          <p className="text-sm font-medium">{shipment.destination}</p>
-                        </div>
-                      </div>
-                    </div>
 
-                    <div className="mb-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium">Progresso da Viagem</span>
-                        <span className="text-sm font-bold text-primary">{progress}%</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div
-                          className="bg-gradient-primary h-2 rounded-full transition-all"
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                      {shipment.delivery_date && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Previsão de entrega: {new Date(shipment.delivery_date).toLocaleString("pt-BR")}
-                        </p>
-                      )}
-                    </div>
-
-                    {shipment.cargo_type && (
-                      <div className="bg-muted p-3 rounded-lg mb-3">
+                      <div className="grid grid-cols-2 gap-4 mb-4">
                         <div className="flex items-start gap-2">
-                          <Package className="h-4 w-4 text-primary mt-0.5" />
-                          <div className="flex-1">
-                            <p className="text-xs font-medium mb-1">Tipo de Carga:</p>
-                            <p className="text-sm">{shipment.cargo_type}</p>
+                          <MapPin className="h-4 w-4 text-success mt-0.5" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Origem</p>
+                            <p className="text-sm font-medium">{shipment.origin}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <MapPin className="h-4 w-4 text-danger mt-0.5" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Destino</p>
+                            <p className="text-sm font-medium">{shipment.destination}</p>
                           </div>
                         </div>
                       </div>
-                    )}
 
-                    {risk === "alto" && (
-                      <div className="flex items-center gap-2 mt-3 p-2 bg-danger/10 rounded-lg">
-                        <AlertTriangle className="h-4 w-4 text-danger" />
-                        <p className="text-sm text-danger font-medium">
-                          Risco de atraso na entrega - Monitoramento necessário
-                        </p>
+                      <div className="mb-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm font-medium">Progresso da Viagem</span>
+                          <span className="text-sm font-bold text-primary">{progress}%</span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div
+                            className="bg-gradient-primary h-2 rounded-full transition-all"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                        {shipment.delivery_date && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Previsão de entrega: {new Date(shipment.delivery_date).toLocaleString("pt-BR")}
+                          </p>
+                        )}
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })
+
+                      {shipment.cargo_type && (
+                        <div className="bg-muted p-3 rounded-lg mb-3">
+                          <div className="flex items-start gap-2">
+                            <Package className="h-4 w-4 text-primary mt-0.5" />
+                            <div className="flex-1">
+                              <p className="text-xs font-medium mb-1">Tipo de Carga:</p>
+                              <p className="text-sm">{shipment.cargo_type}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {risk === "alto" && (
+                        <div className="flex items-center gap-2 mt-3 p-2 bg-danger/10 rounded-lg">
+                          <AlertTriangle className="h-4 w-4 text-danger" />
+                          <p className="text-sm text-danger font-medium">
+                            Risco de atraso na entrega - Monitoramento necessário
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })
           )}
         </TabsContent>
       </Tabs>

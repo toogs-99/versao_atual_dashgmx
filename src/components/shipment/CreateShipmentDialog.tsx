@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { createEmbarque } from "@/lib/embarques";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -16,7 +17,7 @@ interface CreateShipmentDialogProps {
 export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-  
+
   const [formData, setFormData] = useState({
     origin: "",
     destination: "",
@@ -33,7 +34,7 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.origin || !formData.destination) {
       toast({
         title: "Campos obrigatórios",
@@ -46,24 +47,19 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase
-        .from('embarques')
-        .insert([{
-          origin: formData.origin,
-          destination: formData.destination,
-          cargo_type: formData.cargo_type || null,
-          weight: formData.weight ? parseFloat(formData.weight) : null,
-          total_value: formData.total_value ? parseFloat(formData.total_value) : null,
-          driver_value: formData.driver_value ? parseFloat(formData.driver_value) : null,
-          client_name: formData.client_name || null,
-          pickup_date: formData.pickup_date || null,
-          delivery_date: formData.delivery_date || null,
-          delivery_window_start: formData.delivery_window_start || null,
-          delivery_window_end: formData.delivery_window_end || null,
-          status: 'new',
-        }]);
-
-      if (error) throw error;
+      await createEmbarque({
+        origin: formData.origin,
+        destination: formData.destination,
+        cargo_type: formData.cargo_type || null,
+        total_value: formData.total_value ? parseFloat(formData.total_value) : null,
+        pickup_date: formData.pickup_date || null,
+        delivery_date: formData.delivery_date || null,
+        delivery_window_start: formData.delivery_window_start || null,
+        delivery_window_end: formData.delivery_window_end || null,
+        email_content: (formData as any).email_content || null,
+        status: 'new',
+        // Directus fields that might not match exact Supabase types need care, but createEmbarque handles 'any' for now.
+      });
 
       toast({
         title: "Embarque criado!",

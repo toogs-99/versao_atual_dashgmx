@@ -84,32 +84,84 @@ export const StatsDashboard = () => {
     }
   });
 
-  // Fetch Rotas data (Top 10) - Keeping Mock for now as requested specific scope was 'disponibilidade'
+  // Fetch Rotas data (REAL from embarques)
   const { data: rotasData, isLoading: rotasLoading } = useQuery({
-    queryKey: ['rotas-mock', periodFilter, rotasProdutoFilter],
+    queryKey: ['rotas-real', periodFilter],
     queryFn: async () => {
-      // MOCK DATA
-      const mockRotas = [
-        { id: 1, rota: 'MT -> SP', produto: 'Arroz', quantidade: 50, data: new Date().toISOString().split('T')[0] },
-        { id: 2, rota: 'GO -> PR', produto: 'Milho', quantidade: 40, data: new Date().toISOString().split('T')[0] },
-        { id: 3, rota: 'SP -> RJ', produto: 'Açúcar', quantidade: 35, data: new Date().toISOString().split('T')[0] },
-        { id: 4, rota: 'RS -> SC', produto: 'Arroz', quantidade: 30, data: new Date().toISOString().split('T')[0] },
-        { id: 5, rota: 'BA -> SE', produto: 'Milho', quantidade: 25, data: new Date().toISOString().split('T')[0] },
-      ];
-      return mockRotas;
+      try {
+        const filter: any = {};
+        const dateFilter = getDateFilter(periodFilter);
+        if (dateFilter) {
+          filter.created_at = { _gte: dateFilter };
+        }
+
+        const embarques = await directus.request(readItems('embarques', {
+          fields: ['origin', 'destination', 'produto_predominante'],
+          filter: filter,
+          limit: 1000
+        }));
+
+        // Transformar para formato de gráfico
+        // Agrupar por "Origem -> Destino"
+        const routeStats = embarques.reduce((acc: any, curr: any) => {
+          if (!curr.origin || !curr.destination) return acc;
+          const routeName = `${curr.origin.split('-')[0].trim()} -> ${curr.destination.split('-')[0].trim()}`;
+          const produto = curr.produto_predominante || 'Diversos';
+
+          const key = `${routeName}|${produto}`;
+
+          if (!acc[key]) {
+            acc[key] = { rota: routeName, produto, quantidade: 0 };
+          }
+          acc[key].quantidade += 1;
+          return acc;
+        }, {});
+
+        return Object.values(routeStats) as { rota: string, produto: string, quantidade: number }[];
+      } catch (err) {
+        console.error("Erro ao buscar rotas:", err);
+        return [];
+      }
     }
   });
 
-  // Fetch Acionamento data
+  // Fetch Acionamento data (REAL from driver status/disponibilidade)
   const { data: acionamentoData, isLoading: acionamentoLoading } = useQuery({
-    queryKey: ['acionamento-mock', periodFilter],
+    queryKey: ['acionamento-real', periodFilter],
     queryFn: async () => {
-      // MOCK DATA
-      return [
-        { tipo: 'Online', valor: 45, data: new Date().toISOString().split('T')[0] },
-        { tipo: 'Offline', valor: 15, data: new Date().toISOString().split('T')[0] },
-        { tipo: 'Em Rota', valor: 30, data: new Date().toISOString().split('T')[0] },
-      ];
+      try {
+        // Buscar motoristas para ver status atual
+        // Assumindo que temos um campo de status ou inferimos da tabela disponivel
+        const motoristas = await directus.request(readItems('drivers', {
+          fields: ['status'],
+          limit: 1000
+        }));
+
+        // Contagem de status
+        const stats = {
+          'Disponível': 0,
+          'Em Viagem': 0,
+          'Indisponível': 0
+        };
+
+        motoristas.forEach((m: any) => {
+          // Normalizar status possiveis
+          const s = m.status?.toLowerCase();
+          if (s === 'active' || s === 'disponivel') stats['Disponível']++;
+          else if (s === 'busy' || s === 'em_viagem') stats['Em Viagem']++;
+          else stats['Indisponível']++;
+        });
+
+        return [
+          { tipo: 'Disponível', valor: stats['Disponível'] },
+          { tipo: 'Em Viagem', valor: stats['Em Viagem'] },
+          { tipo: 'Indisponível', valor: stats['Indisponível'] }
+        ];
+
+      } catch (err) {
+        console.error("Erro ao buscar acionamento:", err);
+        return [];
+      }
     }
   });
 
@@ -138,34 +190,21 @@ export const StatsDashboard = () => {
   const top10Rotas = useMemo(() => {
     if (!rotasData) return [];
 
-    // Aggregate quantities by route
-    const routeTotals = rotasData.reduce((acc, item) => {
-      if (!acc[item.rota]) {
-        acc[item.rota] = 0;
-      }
-      acc[item.rota] += item.quantidade;
-      return acc;
-    }, {} as Record<string, number>);
+    // Filter by product if selected
+    let filtered = rotasData;
+    if (rotasProdutoFilter && rotasProdutoFilter !== 'todos') {
+      filtered = rotasData.filter(r => r.produto === rotasProdutoFilter);
+    }
 
-    // Convert to array and sort
-    return Object.entries(routeTotals)
-      .map(([rota, quantidade]) => ({ rota, quantidade }))
+    // Sort by quantity
+    return filtered
       .sort((a, b) => b.quantidade - a.quantidade)
       .slice(0, 10);
-  }, [rotasData]);
+  }, [rotasData, rotasProdutoFilter]);
 
   const acionamentoChartData = useMemo(() => {
     if (!acionamentoData) return [];
-
-    const totals = acionamentoData.reduce((acc, item) => {
-      if (!acc[item.tipo]) {
-        acc[item.tipo] = 0;
-      }
-      acc[item.tipo] += item.valor;
-      return acc;
-    }, {} as Record<string, number>);
-
-    return Object.entries(totals).map(([name, value]) => ({ name, value }));
+    return acionamentoData.map(item => ({ name: item.tipo, value: item.valor }));
   }, [acionamentoData]);
 
   // Get unique produtos from frota_mock data

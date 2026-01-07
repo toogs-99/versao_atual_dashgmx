@@ -9,6 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Package, DollarSign, Calendar, Mail, FileText, Upload, Eye, Download, Edit, Save, X, Trash2, FileSpreadsheet } from "lucide-react";
 import { OcrDocumentViewer } from "@/components/dashboard/OcrDocumentViewer";
 import { supabase } from "@/integrations/supabase/client";
+import { directus } from "@/lib/directus";
+import { readItems, createItem, updateItem, deleteItem, uploadFiles, deleteFile } from "@directus/sdk";
+import { updateEmbarque } from "@/lib/embarques";
 import { useToast } from "@/hooks/use-toast";
 import DOMPurify from "dompurify";
 
@@ -37,7 +40,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
   const deliveryFileRef = useRef<HTMLInputElement>(null);
   const documentFileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  
+
   useEffect(() => {
     if (shipment?.id && open) {
       fetchDeliveryReceipts();
@@ -57,80 +60,84 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
 
   const fetchDeliveryReceipts = async () => {
     if (!shipment?.id) return;
-    
-    const { data, error } = await supabase
-      .from("delivery_receipts")
-      .select("*")
-      .eq("shipment_id", shipment.id)
-      .order("created_at", { ascending: false });
 
-    if (!error && data) {
-      setDeliveryReceipts(data);
+    try {
+      const data = await directus.request(readItems('delivery_receipts', {
+        filter: { shipment_id: { _eq: shipment.id } },
+        sort: ['-date_created' as any],
+        fields: ['*', 'file.*']
+      }));
+      // Map Directus file object to flat structure if needed, or keeping it as is if frontend adapts
+      const mappedData = data.map((item: any) => ({
+        ...item,
+        file_url: item.file ? `${import.meta.env.VITE_DIRECTUS_URL}/assets/${item.file.id}` : item.file_url // Fallback to legacy
+      }));
+      setDeliveryReceipts(mappedData);
+    } catch (error) {
+      console.error("Error fetching delivery receipts:", error);
     }
   };
 
   const fetchPaymentReceipts = async () => {
     if (!shipment?.id) return;
-    
-    const { data, error } = await supabase
-      .from("payment_receipts")
-      .select("*")
-      .eq("shipment_id", shipment.id)
-      .order("created_at", { ascending: false });
 
-    if (!error && data) {
-      setPaymentReceipts(data);
+    try {
+      const data = await directus.request(readItems('payment_receipts', {
+        filter: { shipment_id: { _eq: shipment.id } },
+        sort: ['-date_created' as any],
+        fields: ['*', 'file.*']
+      }));
+      const mappedData = data.map((item: any) => ({
+        ...item,
+        file_url: item.file ? `${import.meta.env.VITE_DIRECTUS_URL}/assets/${item.file.id}` : item.file_url
+      }));
+      setPaymentReceipts(mappedData);
+    } catch (error) {
+      console.error("Error fetching payment receipts:", error);
     }
   };
 
   const fetchShipmentDocuments = async () => {
     if (!shipment?.id) return;
-    
-    const { data, error } = await supabase
-      .from("shipment_documents")
-      .select("*")
-      .eq("shipment_id", shipment.id)
-      .order("created_at", { ascending: false });
 
-    if (!error && data) {
-      setShipmentDocuments(data);
+    try {
+      const data = await directus.request(readItems('shipment_documents', {
+        filter: { shipment_id: { _eq: shipment.id } },
+        sort: ['-date_created' as any],
+        fields: ['*', 'file.*']
+      }));
+      const mappedData = data.map((item: any) => ({
+        ...item,
+        file_url: item.file ? `${import.meta.env.VITE_DIRECTUS_URL}/assets/${item.file.id}` : item.file_url
+      }));
+      setShipmentDocuments(mappedData);
+    } catch (error) {
+      console.error("Error fetching shipment documents:", error);
     }
   };
 
   const handleFileUpload = async (file: File, bucketName: string, tableName: string, additionalData?: any) => {
     if (!shipment?.id) return;
-    
+
     setUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${shipment.id}/${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from(bucketName)
-        .upload(fileName, file);
+      const formData = new FormData();
+      formData.append('file', file);
 
-      if (uploadError) throw uploadError;
+      // 1. Upload file to Directus
+      const fileResult = await directus.request(uploadFiles(formData));
+      const fileId = fileResult.id;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from(bucketName)
-        .getPublicUrl(fileName);
-
-      const { data: { user } } = await supabase.auth.getUser();
-
+      // 2. Create record in target table linking the file
       const insertData = {
         shipment_id: shipment.id,
-        file_url: publicUrl,
+        file: fileId, // Link to directus_files
         file_name: file.name,
         file_size: file.size,
-        uploaded_by: user?.id,
         ...additionalData
       };
 
-      const { error: dbError } = await (supabase as any)
-        .from(tableName)
-        .insert(insertData);
-
-      if (dbError) throw dbError;
+      await directus.request(createItem(tableName, insertData));
 
       toast({
         title: "Upload realizado",
@@ -155,16 +162,16 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
 
   const handleDeleteFile = async (id: string, fileUrl: string, tableName: string, bucketName: string) => {
     try {
-      const fileName = fileUrl.split('/').slice(-2).join('/');
-      
-      await supabase.storage.from(bucketName).remove([fileName]);
-      
-      const { error } = await (supabase as any)
-        .from(tableName)
-        .delete()
-        .eq('id', id);
+      // Extract ID from directus asset URL: .../assets/<id>
+      const fileId = fileUrl.split('/').pop();
 
-      if (error) throw error;
+      // 1. Delete the record in the table (delivery_receipts, etc)
+      await directus.request(deleteItem(tableName, id));
+
+      // 2. Delete the actual file if we have the ID (and it looks like a valid UUID/ID)
+      if (fileId && !fileUrl.includes('supabase')) {
+        await directus.request(deleteFile(fileId));
+      }
 
       toast({
         title: "Arquivo removido",
@@ -176,6 +183,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
       if (tableName === 'shipment_documents') await fetchShipmentDocuments();
 
     } catch (error: any) {
+      console.error("Delete error:", error);
       toast({
         title: "Erro ao deletar",
         description: error.message,
@@ -187,50 +195,46 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
   const handleSaveDetails = async () => {
     if (!shipment?.id) return;
 
-    const { error } = await supabase
-      .from("embarques")
-      .update({
+    try {
+      await updateEmbarque(shipment.id, {
         origin: editedData.origin,
         destination: editedData.destination,
         cargo_type: editedData.cargo,
         total_value: editedData.value,
         pickup_date: editedData.pickupDate || null,
         delivery_date: editedData.deliveryDate || null
-      })
-      .eq("id", shipment.id);
+      });
 
-    if (error) {
-      toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível salvar as alterações",
-        variant: "destructive"
-      });
-    } else {
-      toast({
-        title: "Dados atualizados",
-        description: "As informações da carga foram salvas com sucesso"
-      });
-      setIsEditingDetails(false);
-      // Update local shipment data
-      if (shipment) {
-        shipment.origin = editedData.origin;
-        shipment.destination = editedData.destination;
-        shipment.cargo = editedData.cargo;
-        shipment.value = editedData.value;
-        shipment.pickup_date = editedData.pickupDate;
-        shipment.delivery_date = editedData.deliveryDate;
-      }
+      // Success path handled by catch block below if error throws
+    } catch (error) {
+      // Toast already handled in updateEmbarque but we can keep local error state if needed
+      return;
     }
-  };
+    toast({
+      title: "Dados atualizados",
+      description: "As informações da carga foram salvas com sucesso"
+    });
+    setIsEditingDetails(false);
+    // Update local shipment data
+    if (shipment) {
+      shipment.origin = editedData.origin;
+      shipment.destination = editedData.destination;
+      shipment.cargo = editedData.cargo;
+      shipment.value = editedData.value;
+      shipment.pickup_date = editedData.pickupDate;
+      shipment.delivery_date = editedData.deliveryDate;
+    }
+  }
+
 
   if (!shipment) return null;
 
   const routeStates = shipment.route_states ? shipment.route_states.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
-  
+
   const renderFilePreview = (file: any) => {
     const isExcel = /\.(xlsx?|xlsb|csv)$/i.test(file.file_name);
     const isPdf = /\.pdf$/i.test(file.file_name);
-    
+
     return (
       <div className="flex items-center justify-between p-3 border rounded-lg">
         <div className="flex items-center gap-3">
@@ -263,7 +267,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
       </div>
     );
   };
-  
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto">
@@ -423,14 +427,14 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
                         <div>
                           <p className="text-sm text-muted-foreground">Data de Coleta</p>
                           <p className="font-medium">
-                            {shipment.pickup_date 
+                            {shipment.pickup_date
                               ? new Date(shipment.pickup_date).toLocaleString('pt-BR', {
-                                  day: '2-digit',
-                                  month: '2-digit', 
-                                  year: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })
                               : 'Não informada'}
                           </p>
                         </div>
@@ -440,14 +444,14 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
                         <div>
                           <p className="text-sm text-muted-foreground">Data de Entrega</p>
                           <p className="font-medium">
-                            {shipment.delivery_date 
+                            {shipment.delivery_date
                               ? new Date(shipment.delivery_date).toLocaleString('pt-BR', {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })
                               : 'Não informada'}
                           </p>
                         </div>
@@ -502,12 +506,12 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="border rounded-lg overflow-hidden">
                       <div className="bg-muted px-4 py-2 border-b flex justify-between items-center">
                         <p className="text-sm font-medium">Conteúdo do Email</p>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => {
                             const blob = new Blob([shipment.email_content], { type: 'text/html' });
@@ -523,14 +527,14 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
                           Baixar HTML
                         </Button>
                       </div>
-                      <div 
+                      <div
                         className="bg-white p-6 overflow-x-auto overflow-y-auto max-h-[70vh]"
                         style={{
                           fontFamily: 'Arial, sans-serif',
                           fontSize: '14px',
                           lineHeight: '1.6'
                         }}
-                        dangerouslySetInnerHTML={{ 
+                        dangerouslySetInnerHTML={{
                           __html: DOMPurify.sanitize(shipment.email_content, {
                             ALLOWED_TAGS: ['html', 'head', 'body', 'meta', 'style', 'p', 'br', 'strong', 'b', 'em', 'i', 'u', 'a', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'img'],
                             ALLOWED_ATTR: ['href', 'target', 'style', 'class', 'src', 'alt', 'width', 'height', 'border', 'cellpadding', 'cellspacing', 'colspan', 'rowspan', 'align', 'valign', 'bgcolor', 'http-equiv', 'content', 'type', 'dir'],
@@ -583,8 +587,8 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
                     }
                   }}
                 />
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full"
                   onClick={() => paymentFileRef.current?.click()}
                   disabled={uploading}
@@ -592,7 +596,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
                   <Upload className="h-4 w-4 mr-2" />
                   {uploading ? 'Enviando...' : 'Upload Comprovante (70-90% Adiantamento)'}
                 </Button>
-                
+
                 {paymentReceipts.length > 0 ? (
                   <div className="space-y-2">
                     {paymentReceipts.map((receipt) => renderFilePreview(receipt))}
@@ -620,8 +624,8 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
                     }
                   }}
                 />
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full"
                   onClick={() => deliveryFileRef.current?.click()}
                   disabled={uploading}
@@ -693,8 +697,8 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
                       }
                     }}
                   />
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full"
                     onClick={() => documentFileRef.current?.click()}
                     disabled={uploading || !newDocTitle.trim()}
@@ -770,7 +774,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
                       <p className="text-sm text-muted-foreground">{shipment.deadline}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex gap-3">
                     <div className="flex flex-col items-center">
                       <div className="w-3 h-3 bg-primary rounded-full" />
