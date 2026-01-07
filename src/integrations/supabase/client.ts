@@ -1,8 +1,6 @@
 // MOCK Supabase Client for Migration
-// We are migrating to Directus, so we are bypassing Supabase initialization entirely 
-// to prevent "supabaseUrl is required" errors.
-
-console.warn("⚠️ SUPABASE IS MOCKED/DISABLED. Using Directus for data.");
+// We are migrating to Directus. This mock exists only to avoid runtime crashes in legacy code paths.
+// Keep it silent to avoid confusing console output.
 
 // A proxy that allows any method call without crashing, returning a promise that resolves to basic empty data
 const createMockChain = () => {
@@ -21,7 +19,6 @@ const createMockChain = () => {
 
 export const supabase = {
   from: (table: string) => {
-    console.log(`[MockSupabase] Ignored request to table: ${table}`);
     return createMockChain();
   },
   auth: {

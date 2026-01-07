@@ -11,11 +11,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useDriverFields } from "@/hooks/useDriverFields";
 import { DynamicFieldRenderer } from "@/components/driver/DynamicFieldRenderer";
 import { DriverProfileDialog } from "@/components/driver/DriverProfileDialog";
-import { DriverCrudDialog } from "@/components/driver/DriverCrudDialog";
 import { FieldConfigManager } from "./FieldConfigManager";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { directus } from "@/lib/directus";
-import { readItems, updateItem, createItem } from "@directus/sdk";
+import { readItems, createItem } from "@directus/sdk";
 
 export const DynamicDriverRegistry = () => {
   const { toast } = useToast();
@@ -28,7 +27,6 @@ export const DynamicDriverRegistry = () => {
   const [selectedDriver, setSelectedDriver] = useState<any | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const [startInEditMode, setStartInEditMode] = useState(false);
   const itemsPerPage = 20;
@@ -434,15 +432,6 @@ export const DynamicDriverRegistry = () => {
           <FieldConfigManager />
         </DialogContent>
       </Dialog>
-
-      <DriverCrudDialog
-        open={isCreateOpen}
-        onOpenChange={setIsCreateOpen}
-        onSuccess={() => {
-          fetchDrivers();
-          setIsCreateOpen(false);
-        }}
-      />
 
       {/* Edit Dialog Logic Removed - using ProfileDialog for Edits now */}
     </div>

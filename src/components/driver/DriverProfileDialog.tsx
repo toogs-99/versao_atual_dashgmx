@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { User, Truck, FileText, ScrollText, Image as ImageIcon } from "lucide-react";
-import { directus } from "@/lib/directus";
+import { directus, directusUrl } from "@/lib/directus";
 import { readItems, updateItem, createItem } from "@directus/sdk";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -78,6 +78,156 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
   const [anttForm, setAnttForm] = useState<any>({});
 
   const [documentUrl, setDocumentUrl] = useState<string | null>(null);
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const [filesServiceAvailable, setFilesServiceAvailable] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>("geral");
+
+  const tabStorageKey = localDriverData?.id ? `driver-profile-tab:${localDriverData.id}` : null;
+
+  const parseNumberOrUndefined = (val: unknown) => {
+    if (val === null || val === undefined) return undefined;
+    const str = String(val).trim();
+    if (!str) return undefined;
+    const num = Number(str.replace(",", "."));
+    return Number.isFinite(num) ? num : undefined;
+  };
+
+  const uploadToDirectusAndGetUrl = async (file: File) => {
+    const token = import.meta.env.VITE_DIRECTUS_TOKEN as string | undefined;
+    if (!token) {
+      throw new Error("VITE_DIRECTUS_TOKEN não configurado");
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(`${directusUrl}/files`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const msg = json?.errors?.[0]?.message || json?.error?.message || `Falha no upload (${res.status})`;
+      const svc = json?.errors?.[0]?.extensions?.service;
+      if (res.status === 503 && (svc === "files" || String(msg).includes('Service "files" is unavailable'))) {
+        setFilesServiceAvailable(false);
+      }
+      throw new Error(msg);
+    }
+
+    const id = json?.data?.id;
+    if (!id) throw new Error("Upload concluído, mas sem id retornado pelo Directus");
+    return `${directusUrl}/assets/${id}`;
+  };
+
+  const AttachmentEditor = ({
+    label = "Anexo",
+    value,
+    onChange,
+    uploadingId,
+  }: {
+    label?: string;
+    value?: string;
+    onChange: (next: string) => void;
+    uploadingId: string;
+  }) => {
+    const isUploading = uploadingKey === uploadingId;
+    const uploadDisabled = isUploading || !filesServiceAvailable;
+
+    return (
+      <div className="col-span-2 border rounded-md p-3 bg-muted/10">
+        <div className="text-sm font-medium mb-2">{label}</div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="flex flex-col space-y-1.5">
+            <span className="text-sm text-muted-foreground">URL do anexo</span>
+            <Input
+              value={value || ""}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="Cole um link ou faça upload"
+            />
+          </div>
+          <div className="flex flex-col space-y-1.5">
+            <span className="text-sm text-muted-foreground">Upload</span>
+            <Input
+              type="file"
+              disabled={uploadDisabled}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                try {
+                  setUploadingKey(uploadingId);
+                  const url = await uploadToDirectusAndGetUrl(file);
+                  onChange(url);
+                  toast({ title: "Upload concluído", description: "Anexo vinculado ao documento." });
+                } catch (err) {
+                  toast({
+                    variant: "destructive",
+                    title: "Erro no upload",
+                    description: filesServiceAvailable
+                      ? String(err)
+                      : 'Upload indisponível no Directus (serviço "files"). Use URL do anexo por enquanto.',
+                  });
+                } finally {
+                  setUploadingKey(null);
+                  // permite reupload do mesmo arquivo
+                  e.target.value = "";
+                }
+              }}
+            />
+            {isUploading && <span className="text-xs text-muted-foreground">Enviando arquivo...</span>}
+            {!filesServiceAvailable && (
+              <span className="text-xs text-muted-foreground">
+                Upload desabilitado: Directus retornou 503 para `files`. Cole a URL do anexo acima.
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="mt-2">
+          {value ? (
+            <Button variant="link" className="p-0 h-auto text-blue-600 hover:underline" onClick={() => setDocumentUrl(value)}>
+              Visualizar anexo
+            </Button>
+          ) : (
+            <span className="text-xs text-muted-foreground">Nenhum anexo vinculado.</span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const AttachmentPreview = ({
+    label = "Anexo",
+    value,
+  }: {
+    label?: string;
+    value?: string;
+  }) => {
+    return (
+      <div className="col-span-2 border rounded-md p-3 bg-muted/10">
+        <div className="text-sm font-medium mb-2">{label}</div>
+        {value ? (
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-muted-foreground truncate">{value}</span>
+            <Button
+              variant="link"
+              className="p-0 h-auto text-blue-600 hover:underline shrink-0"
+              onClick={() => setDocumentUrl(value)}
+            >
+              Visualizar
+            </Button>
+          </div>
+        ) : (
+          <div className="text-xs text-muted-foreground">
+            Sem anexo. Clique em <strong>Adicionar</strong>/<strong>Editar</strong> para vincular uma URL de anexo.
+          </div>
+        )}
+      </div>
+    );
+  };
 
   useEffect(() => {
     setLocalDriverData(driverData);
@@ -106,6 +256,34 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
       }
     }
   }, [open, driverData, initialEditMode]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    // Restore last selected tab for this driver (or default to 'geral')
+    try {
+      if (tabStorageKey) {
+        const saved = window.localStorage.getItem(tabStorageKey);
+        if (saved) {
+          setActiveTab(saved);
+          return;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    setActiveTab("geral");
+  }, [open, tabStorageKey]);
+
+  const handleTabChange = (next: string) => {
+    setActiveTab(next);
+    try {
+      if (tabStorageKey) window.localStorage.setItem(tabStorageKey, next);
+    } catch {
+      // ignore
+    }
+  };
 
   const fetchRelatedData = async () => {
     setLoading(true);
@@ -150,28 +328,36 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
   };
 
   const handleEditAvailability = () => {
-    if (data.disponivel) {
-      setEditFormData({
-        status: data.disponivel.status,
-        localizacao_atual: data.disponivel.localizacao_atual || data.disponivel.local_disponibilidade, // Fallback
-        destino_preferencia: data.disponivel.destino_preferencia,
-        data_liberacao: data.disponivel.data_liberacao ? new Date(data.disponivel.data_liberacao).toISOString().split('T')[0] : '', // Simple date formatting
-        observacao: data.disponivel.observacao
-      });
-      setIsEditingAvailability(true);
-    }
+    const src = data.disponivel || {};
+    setEditFormData({
+      status: src.status || 'disponivel',
+      localizacao_atual: src.localizacao_atual || src.local_disponibilidade || '',
+      latitude: src.latitude ?? '',
+      longitude: src.longitude ?? '',
+      data_liberacao: src.data_liberacao ? new Date(src.data_liberacao).toISOString().split('T')[0] : '',
+      observacao: src.observacao || ''
+    });
+    setIsEditingAvailability(true);
   };
 
   const handleSaveAvailability = async () => {
-    if (!data.disponivel?.id) return;
-
     try {
       setLoading(true);
-      await directus.request(updateItem('disponivel', data.disponivel.id, {
+
+      // Importante: tratamos disponibilidade como histórico.
+      // Ao "editar", criamos um novo registro como status mais recente.
+      if (!localDriverData?.id) {
+        toast({ variant: "destructive", title: "Salve o motorista antes de editar a disponibilidade" });
+        return;
+      }
+
+      await directus.request(createItem('disponivel', {
+        motorista_id: localDriverData.id,
         status: editFormData.status,
-        localizacao_atual: editFormData.localizacao_atual, // Try saving to both if unsure, or just the one that works
-        local_disponibilidade: editFormData.localizacao_atual, // Copy value to potential new field name
-        destino_preferencia: editFormData.destino_preferencia,
+        localizacao_atual: editFormData.localizacao_atual,
+        local_disponibilidade: editFormData.localizacao_atual, // compat
+        latitude: parseNumberOrUndefined(editFormData.latitude),
+        longitude: parseNumberOrUndefined(editFormData.longitude),
         data_liberacao: editFormData.data_liberacao,
         observacao: editFormData.observacao
       }));
@@ -179,7 +365,6 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
       setIsEditingAvailability(false);
       await fetchRelatedData(); // Refresh data
       toast({ title: "Disponibilidade atualizada com sucesso" });
-      onOpenChange(false);
     } catch (error) {
       console.error("Error updating availability:", error);
       toast({ variant: "destructive", title: "Erro ao atualizar disponibilidade", description: String(error) });
@@ -212,11 +397,11 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
     try {
       setLoading(true);
 
-      let createdDriver = null;
+      let resultDriver: any = null;
 
       if (localDriverData?.id) {
         // Update existing
-        await directus.request(updateItem('cadastro_motorista', localDriverData.id, {
+        const updated = await directus.request(updateItem('cadastro_motorista', localDriverData.id, {
           nome: infoFormData.nome,
           sobrenome: infoFormData.sobrenome,
           telefone: infoFormData.telefone,
@@ -226,12 +411,10 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
           estado: infoFormData.estado,
         }));
 
-        setLocalDriverData((prev: any) => ({
-          ...prev,
-          ...infoFormData,
-          date_updated: new Date().toISOString()
-        }));
+        // Garante UI sincronizada com o que o Directus retorna
+        setLocalDriverData(updated);
         toast({ title: "Informações atualizadas com sucesso" });
+        resultDriver = updated;
       } else {
         // Create new
         const newDriver = await directus.request(createItem('cadastro_motorista', {
@@ -246,12 +429,12 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
         }));
 
         setLocalDriverData(newDriver);
-        createdDriver = newDriver;
+        resultDriver = newDriver;
         toast({ title: "Motorista criado com sucesso!", description: "As abas de Documentos e Veículos foram liberadas. Continue o cadastro." });
       }
 
       setIsEditingInfo(false);
-      if (onUpdate) onUpdate(createdDriver || undefined);
+      if (onUpdate) onUpdate(resultDriver || undefined);
     } catch (error) {
       console.error("Error saving info:", error);
       toast({ variant: "destructive", title: "Erro ao salvar informações", description: String(error) });
@@ -446,10 +629,14 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
             </DialogTitle>
           </DialogHeader>
 
-          {loading ? (
-            <div className="p-8 text-center text-muted-foreground">Carregando informações completas...</div>
-          ) : (
-            <Tabs defaultValue="geral" className="w-full">
+          <div className="relative">
+            {loading && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-md">
+                <div className="text-sm text-muted-foreground">Carregando informações...</div>
+              </div>
+            )}
+
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
               <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="geral">Geral</TabsTrigger>
                 <TabsTrigger value="disponibilidade" disabled={!localDriverData?.id}>Disponibilidade</TabsTrigger>
@@ -566,8 +753,9 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                   </CardContent>
 
                 </Card>
+              </TabsContent>
 
-                {/* Dados da Disponibilidade (New Section) */}
+              <TabsContent value="disponibilidade" className="space-y-4 mt-4">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2 justify-between">
@@ -575,12 +763,14 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                         <Truck className="h-5 w-5 text-blue-600" />
                         Dados da Disponibilidade (Logística)
                       </div>
-                      {data.disponivel && !isEditingAvailability && (
+
+                      {!isEditingAvailability && (
                         <Button variant="ghost" size="sm" onClick={handleEditAvailability}>
                           <Pencil className="h-4 w-4 mr-2" />
-                          Editar
+                          {data.disponivel ? 'Editar' : 'Adicionar'}
                         </Button>
                       )}
+
                       {isEditingAvailability && (
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={handleCancelEdit}>
@@ -595,102 +785,158 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                       )}
                     </CardTitle>
                   </CardHeader>
+
                   <CardContent className="grid gap-4 md:grid-cols-2">
-                    {data.disponivel ? (
+                    {isEditingAvailability ? (
+                      <>
+                        {(() => {
+                          const isDisponivel = editFormData.status === 'disponivel';
+                          return (
+                            <>
+                        <div className="flex flex-col space-y-1.5">
+                          <span className="text-sm text-muted-foreground">Status</span>
+                          <Select
+                            value={editFormData.status}
+                            onValueChange={(val) => setEditFormData({
+                              ...editFormData,
+                              status: val,
+                              // Se já está disponível, previsão de liberação não faz sentido
+                              data_liberacao: val === 'disponivel' ? '' : editFormData.data_liberacao
+                            })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="disponivel">Disponível</SelectItem>
+                              <SelectItem value="indisponivel">Indisponível</SelectItem>
+                              <SelectItem value="em_viagem">Em Viagem</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                      isEditingAvailability ? (
-                        <>
-                          <div className="flex flex-col space-y-1.5">
-                            <span className="text-sm text-muted-foreground">Status</span>
-                            <Select
-                              value={editFormData.status}
-                              onValueChange={(val) => setEditFormData({ ...editFormData, status: val })}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecione o status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="disponivel">Disponível</SelectItem>
-                                <SelectItem value="indisponivel">Indisponível</SelectItem>
-                                <SelectItem value="em_viagem">Em Viagem</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="flex flex-col space-y-1.5">
-                            <span className="text-sm text-muted-foreground">Localização Atual</span>
-                            <Input
-                              value={editFormData.localizacao_atual || ''}
-                              onChange={(e) => setEditFormData({ ...editFormData, localizacao_atual: e.target.value })}
-                            />
-                          </div>
-
-                          <div className="flex flex-col space-y-1.5">
-                            <span className="text-sm text-muted-foreground">Destino Preferência</span>
-                            <Input
-                              value={editFormData.destino_preferencia || ''}
-                              onChange={(e) => setEditFormData({ ...editFormData, destino_preferencia: e.target.value })}
-                            />
-                          </div>
-
-                          <div className="flex flex-col space-y-1.5">
-                            <span className="text-sm text-muted-foreground">Previsão Liberação</span>
-                            <Input
-                              type="date"
-                              value={editFormData.data_liberacao || ''}
-                              onChange={(e) => setEditFormData({ ...editFormData, data_liberacao: e.target.value })}
-                            />
-                          </div>
-
-                          <div className="col-span-2 flex flex-col space-y-1.5">
-                            <span className="text-sm text-muted-foreground">Observação</span>
-                            <Textarea
-                              value={editFormData.observacao || ''}
-                              onChange={(e) => setEditFormData({ ...editFormData, observacao: e.target.value })}
-                            />
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <FieldRow label="Status Logístico" value={
-                            <Badge variant={
-                              data.disponivel.status === 'disponivel' ? 'default' :
-                                data.disponivel.status === 'indisponivel' ? 'destructive' : 'secondary'
-                            }>
-                              {data.disponivel.status?.toUpperCase() || "N/A"}
-                            </Badge>
-                          } />
-                          <FieldRow label="Localização Atual" value={data.disponivel.localizacao_atual || data.disponivel.local_disponibilidade} />
-                          <FieldRow label="Destino Preferência" value={data.disponivel.destino_preferencia} />
-                          <FieldRow label="Previsão Liberação"
-                            value={data.disponivel.data_liberacao ?
-                              format(new Date(data.disponivel.data_liberacao), "dd/MM/yyyy HH:mm", { locale: ptBR })
-                              : "-"}
+                        <div className="flex flex-col space-y-1.5">
+                          <span className="text-sm text-muted-foreground">Última localização (por extenso)</span>
+                          <Input
+                            value={editFormData.localizacao_atual || ''}
+                            onChange={(e) => setEditFormData({ ...editFormData, localizacao_atual: e.target.value })}
                           />
-                          <FieldRow label="Data Contato"
-                            value={data.disponivel.date_created ?
-                              format(new Date(data.disponivel.date_created), "dd/MM/yyyy HH:mm", { locale: ptBR })
-                              : "-"}
+                        </div>
+
+                        <div className="flex flex-col space-y-1.5">
+                          <span className="text-sm text-muted-foreground">Previsão de liberação</span>
+                          <Input
+                            type="date"
+                            value={editFormData.data_liberacao || ''}
+                            onChange={(e) => setEditFormData({ ...editFormData, data_liberacao: e.target.value })}
+                            disabled={isDisponivel}
                           />
-                          <FieldRow label="Nome do Operador" value={
-                            data.disponivel.user_created ?
+                          {isDisponivel && (
+                            <span className="text-xs text-muted-foreground">Motorista já está disponível.</span>
+                          )}
+                        </div>
+
+                        <div className="md:col-span-2 grid gap-4 md:grid-cols-2">
+                          <div className="flex flex-col space-y-1.5">
+                            <span className="text-sm text-muted-foreground">Última latitude</span>
+                            <Input
+                              inputMode="decimal"
+                              placeholder="Ex: -23.5505"
+                              value={editFormData.latitude ?? ''}
+                              onChange={(e) => setEditFormData({ ...editFormData, latitude: e.target.value })}
+                            />
+                          </div>
+                          <div className="flex flex-col space-y-1.5">
+                            <span className="text-sm text-muted-foreground">Última longitude</span>
+                            <Input
+                              inputMode="decimal"
+                              placeholder="Ex: -46.6333"
+                              value={editFormData.longitude ?? ''}
+                              onChange={(e) => setEditFormData({ ...editFormData, longitude: e.target.value })}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="col-span-2 flex flex-col space-y-1.5">
+                          <span className="text-sm text-muted-foreground">Observação</span>
+                          <Textarea
+                            value={editFormData.observacao || ''}
+                            onChange={(e) => setEditFormData({ ...editFormData, observacao: e.target.value })}
+                          />
+                        </div>
+                            </>
+                          );
+                        })()}
+                      </>
+                    ) : (
+                      <>
+                        <FieldRow
+                          label="Status Logístico"
+                          value={
+                            data.disponivel ? (
+                              <Badge variant={
+                                data.disponivel.status === 'disponivel' ? 'default' :
+                                  data.disponivel.status === 'indisponivel' ? 'destructive' : 'secondary'
+                              }>
+                                {data.disponivel.status?.toUpperCase() || "N/A"}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">Sem registro</span>
+                            )
+                          }
+                        />
+
+                        <div className="md:col-span-2 border rounded-md p-3 bg-muted/20">
+                          <div className="text-sm font-medium mb-2">Última localização</div>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <FieldRow
+                              label="Última localização (por extenso)"
+                              value={data.disponivel?.localizacao_atual || data.disponivel?.local_disponibilidade || "Não informado"}
+                            />
+
+                            <div className="md:col-span-2 grid gap-3 md:grid-cols-2">
+                              <FieldRow
+                                label="Última latitude"
+                                value={data.disponivel?.latitude ?? "Não informado"}
+                              />
+                              <FieldRow
+                                label="Última longitude"
+                                value={data.disponivel?.longitude ?? "Não informado"}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <FieldRow
+                          label="Previsão de liberação"
+                          value={
+                            data.disponivel?.status === 'disponivel'
+                              ? "Já disponível"
+                              : (data.disponivel?.data_liberacao
+                                ? format(new Date(data.disponivel.data_liberacao), "dd/MM/yyyy HH:mm", { locale: ptBR })
+                                : "Não informado")
+                          }
+                        />
+                        <FieldRow
+                          label="Nome do Operador"
+                          value={
+                            data.disponivel?.user_created ?
                               `${data.disponivel.user_created.first_name || ''} ${data.disponivel.user_created.last_name || ''}`
                               : "Sistema"
-                          } />
-                          <div className="col-span-2">
-                            <FieldRow label="Observação" value={data.disponivel.observacao} />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 col-span-2">
-                            <FieldRow label="Latitude" value={data.disponivel.latitude} />
-                            <FieldRow label="Longitude" value={data.disponivel.longitude} />
-                          </div>
-                          <div className="col-span-2 mt-2">
-                            <p className="text-xs text-muted-foreground">Última atualização: {formatDate(data.disponivel.date_created)}</p>
-                          </div>
-                        </>
-                      )
-                    ) : (
-                      <div className="col-span-2 text-center text-muted-foreground py-4">Este motorista não tem registro na tabela de disponibilidade.</div>
+                          }
+                        />
+                        <div className="col-span-2">
+                          <FieldRow label="Observação" value={data.disponivel?.observacao} />
+                        </div>
+                        <div className="col-span-2 mt-2">
+                          <p className="text-xs text-muted-foreground">
+                            Última atualização:{' '}
+                            {data.disponivel?.date_created
+                              ? format(new Date(data.disponivel.date_created), "dd/MM/yyyy HH:mm", { locale: ptBR })
+                              : "Não informado"}
+                          </p>
+                        </div>
+                      </>
                     )}
                   </CardContent>
                 </Card>
@@ -776,6 +1022,13 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                           <span className="text-sm text-muted-foreground">Cidade Emissão</span>
                           <Input value={cnhForm.cidade_emissao || ''} onChange={(e) => setCnhForm({ ...cnhForm, cidade_emissao: e.target.value })} />
                         </div>
+
+                        <AttachmentEditor
+                          label="Anexo da CNH"
+                          value={cnhForm.link}
+                          onChange={(next) => setCnhForm({ ...cnhForm, link: next })}
+                          uploadingId={`cnh:${driverData?.id || 'new'}`}
+                        />
                       </>
                     ) : (data.cnh ? (
                       <>
@@ -802,9 +1055,13 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                             </Button>
                           </div>
                         )}
+                        <AttachmentPreview label="Anexo da CNH" value={data.cnh.link} />
                       </>
                     ) : (
-                      <div className="col-span-2 text-center text-muted-foreground py-4">Nenhuma CNH cadastrada</div>
+                      <>
+                        <div className="col-span-2 text-center text-muted-foreground py-4">Nenhuma CNH cadastrada</div>
+                        <AttachmentPreview label="Anexo da CNH" />
+                      </>
                     )
                     )}
                   </CardContent>
@@ -889,6 +1146,13 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                           <span className="text-sm text-muted-foreground">Cidade Emplacado</span>
                           <Input value={crlvForm.cidade_emplacado || ''} onChange={(e) => setCrlvForm({ ...crlvForm, cidade_emplacado: e.target.value })} />
                         </div>
+
+                        <AttachmentEditor
+                          label="Anexo do CRLV"
+                          value={crlvForm.link}
+                          onChange={(next) => setCrlvForm({ ...crlvForm, link: next })}
+                          uploadingId={`crlv:${driverData?.id || 'new'}`}
+                        />
                       </>
                     ) : (data.crlv ? (
                       <>
@@ -915,9 +1179,13 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                             </Button>
                           </div>
                         )}
+                        <AttachmentPreview label="Anexo do CRLV" value={data.crlv.link} />
                       </>
                     ) : (
-                      <div className="col-span-2 text-center text-muted-foreground py-4">Nenhum CRLV cadastrado</div>
+                      <>
+                        <div className="col-span-2 text-center text-muted-foreground py-4">Nenhum CRLV cadastrado</div>
+                        <AttachmentPreview label="Anexo do CRLV" />
+                      </>
                     )
                     )}
                   </CardContent>
@@ -982,6 +1250,13 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                           <span className="text-sm text-muted-foreground">Estado</span>
                           <Input value={addressForm.estado || ''} onChange={(e) => setAddressForm({ ...addressForm, estado: e.target.value })} />
                         </div>
+
+                        <AttachmentEditor
+                          label="Anexo do Comprovante de Endereço"
+                          value={addressForm.link}
+                          onChange={(next) => setAddressForm({ ...addressForm, link: next })}
+                          uploadingId={`comprovante_endereco:${driverData?.id || 'new'}`}
+                        />
                       </>
                     ) : (data.comprovante_endereco ? (
                       <>
@@ -1003,9 +1278,13 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                             </Button>
                           </div>
                         )}
+                        <AttachmentPreview label="Anexo do Comprovante de Endereço" value={data.comprovante_endereco.link} />
                       </>
                     ) : (
-                      <div className="col-span-2 text-center text-muted-foreground py-4">Nenhum comprovante de endereço cadastrado</div>
+                      <>
+                        <div className="col-span-2 text-center text-muted-foreground py-4">Nenhum comprovante de endereço cadastrado</div>
+                        <AttachmentPreview label="Anexo do Comprovante de Endereço" />
+                      </>
                     )
                     )}
                   </CardContent>
@@ -1054,6 +1333,13 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                           <span className="text-sm text-muted-foreground">Nome</span>
                           <Input value={anttForm.nome || ''} onChange={(e) => setAnttForm({ ...anttForm, nome: e.target.value })} />
                         </div>
+
+                        <AttachmentEditor
+                          label="Anexo do Registro ANTT"
+                          value={anttForm.link}
+                          onChange={(next) => setAnttForm({ ...anttForm, link: next })}
+                          uploadingId={`antt:${driverData?.id || 'new'}`}
+                        />
                       </>
                     ) : (data.antt ? (
                       <>
@@ -1071,9 +1357,13 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                             </Button>
                           </div>
                         )}
+                        <AttachmentPreview label="Anexo do Registro ANTT" value={data.antt.link} />
                       </>
                     ) : (
-                      <div className="text-center text-muted-foreground py-4">Nenhum registro ANTT principal encontrado</div>
+                      <>
+                        <div className="text-center text-muted-foreground py-4">Nenhum registro ANTT principal encontrado</div>
+                        <AttachmentPreview label="Anexo do Registro ANTT" />
+                      </>
                     )
                     )}
                   </CardContent>
@@ -1278,8 +1568,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                 </Card>
               </TabsContent>
             </Tabs>
-          )
-          }
+          </div>
         </DialogContent >
       </Dialog >
 
