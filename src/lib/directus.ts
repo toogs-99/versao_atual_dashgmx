@@ -25,6 +25,4 @@ export const directus = createDirectus(directusUrl)
 
 // Client for public/anonymous access (Dashboard stats, etc.)
 // Relies on public permissions being set on the collections
-export const publicDirectus = createDirectus(
-    import.meta.env.VITE_DIRECTUS_URL || "http://91.99.137.101:8057"
-).with(rest());
+export const publicDirectus = createDirectus(directusUrl).with(rest());

@@ -2,10 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, ArrowRight, Package, Truck } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { directus, publicDirectus } from "@/lib/directus";
 import { readItems } from "@directus/sdk";
 import { useOperationalAlerts } from "@/hooks/useOperationalAlerts";
+import { updateEmbarqueStatus } from "@/lib/embarques";
 import {
   Dialog,
   DialogContent,
@@ -20,13 +21,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 export function CriticalPendencies() {
   const { criticalAlerts, highAlerts, resolveAlert } = useOperationalAlerts();
   const [selectedAlert, setSelectedAlert] = useState<any>(null);
+  const [processing, setProcessing] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: immediateActions = [], isLoading: loadingActions } = useQuery({
     queryKey: ['immediate-actions'],
     queryFn: async () => {
       try {
-        const response = await publicDirectus.request(readItems('embarques', {
+        const response = await directus.request(readItems('embarques', {
           filter: {
             status: {
               _in: ['needs_attention', 'waiting_confirmation']
@@ -42,18 +45,35 @@ export function CriticalPendencies() {
         return [];
       }
     },
-    refetchInterval: 30000
+    refetchInterval: 15000 // Faster refresh for actions
   });
 
-  const handleResolveAlert = async () => {
-    if (!selectedAlert) return;
+  const handleConfirmShipment = async (id: string) => {
+    setProcessing(true);
+    try {
+      await updateEmbarqueStatus(id, 'new'); // Confirm -> Moves to New/Active
+      toast({ title: "Embarque Confirmado", description: "O embarque foi ativado com sucesso." });
+      setSelectedAlert(null);
+      queryClient.invalidateQueries({ queryKey: ['immediate-actions'] });
+    } catch (e) {
+      toast({ title: "Erro", description: "Falha ao confirmar embarque.", variant: "destructive" });
+    } finally {
+      setProcessing(false);
+    }
+  };
 
-    await resolveAlert(selectedAlert.id);
-    toast({
-      title: "Alerta resolvido",
-      description: "O alerta foi marcado como resolvido.",
-    });
-    setSelectedAlert(null);
+  const handleManualRelease = async (id: string) => {
+    setProcessing(true);
+    try {
+      await updateEmbarqueStatus(id, 'in_transit'); // Manual release -> Force in transit or similar safe state
+      toast({ title: "Liberado Manualmente", description: "A pendência foi resolvida manualmente." });
+      setSelectedAlert(null);
+      queryClient.invalidateQueries({ queryKey: ['immediate-actions'] });
+    } catch (e) {
+      toast({ title: "Erro", description: "Falha na liberação manual.", variant: "destructive" });
+    } finally {
+      setProcessing(false);
+    }
   };
 
   if (loadingActions) {
@@ -117,9 +137,9 @@ export function CriticalPendencies() {
                 variant="ghost"
                 size="sm"
                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={() => toast({ title: "Detalhes", description: "Funcionalidade de detalhes em breve." })}
+                onClick={() => setSelectedAlert(action)}
               >
-                Ver Detalhes
+                Resolver
               </Button>
             </div>
           ))}
@@ -129,22 +149,52 @@ export function CriticalPendencies() {
       <Dialog open={!!selectedAlert} onOpenChange={(open) => !open && setSelectedAlert(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Resolvendo Alerta</DialogTitle>
+            <DialogTitle>
+              {selectedAlert?.status === 'waiting_confirmation' ? 'Confirmar Embarque' :
+                selectedAlert?.status === 'needs_attention' ? 'Resolver Pendência' : 'Detalhes'}
+            </DialogTitle>
             <DialogDescription>
-              Confirme se deseja marcar este alerta como resolvido.
+              {selectedAlert?.status === 'waiting_confirmation'
+                ? `Deseja confirmar o embarque de ${selectedAlert?.client_name}? Isso moverá o status para 'Novo' e notificará o motorista.`
+                : `Este embarque requer atenção manual. Você pode forçar a liberação ou contatar o suporte.`
+              }
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 space-y-3">
             {selectedAlert && (
-              <div className="space-y-2">
-                <p><strong>Tipo:</strong> {selectedAlert.type}</p>
-                <p><strong>Mensagem:</strong> {selectedAlert.message}</p>
+              <div className="text-sm bg-muted p-3 rounded-md">
+                <p><strong>Cliente:</strong> {selectedAlert.client_name}</p>
+                <p><strong>Origem:</strong> {selectedAlert.origin}</p>
+                <p><strong>Destino:</strong> {selectedAlert.destination}</p>
+                <p><strong>Carga:</strong> {selectedAlert.cargo_type}</p>
               </div>
             )}
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setSelectedAlert(null)}>Cancelar</Button>
-            <Button onClick={handleResolveAlert}>Confirmar Resolução</Button>
+
+            <div className="flex flex-col gap-2">
+              {selectedAlert?.status === 'waiting_confirmation' && (
+                <Button
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  onClick={() => handleConfirmShipment(selectedAlert.id)}
+                  disabled={processing}
+                >
+                  {processing ? "Processando..." : "✅ Confirmar e Iniciar"}
+                </Button>
+              )}
+
+              {selectedAlert?.status === 'needs_attention' && (
+                <Button
+                  className="w-full bg-amber-600 hover:bg-amber-700"
+                  onClick={() => handleManualRelease(selectedAlert.id)}
+                  disabled={processing}
+                >
+                  {processing ? "Processando..." : "⚠️ Liberar Manualmente"}
+                </Button>
+              )}
+
+              <Button variant="outline" className="w-full" onClick={() => setSelectedAlert(null)}>
+                Cancelar
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

@@ -190,6 +190,59 @@ export const StatsDashboard = () => {
     return ['todos', ...rotas.sort()];
   }, [frotaData]);
 
+  // KPIs Query
+  const { data: kpiData, isLoading: kpiLoading } = useQuery({
+    queryKey: ['dashboard-kpis-real'],
+    queryFn: async () => {
+      try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+        // Parallel requests for efficiency
+        const [activeShipments, waitingOffers, completedToday, revenueMonth] = await Promise.all([
+          // Active
+          publicDirectus.request(readItems('embarques', {
+            filter: { status: { _in: ['in_transit', 'loading', 'unloading'] } },
+            aggregate: { count: '*' }
+          })),
+          // Waiting
+          publicDirectus.request(readItems('vehicle_matches', {
+            filter: { status: { _eq: 'offered' } },
+            aggregate: { count: '*' }
+          })),
+          // Completed Today
+          publicDirectus.request(readItems('embarques', {
+            filter: {
+              status: { _eq: 'delivered' },
+              actual_arrival_time: { _gte: today.toISOString() }
+            },
+            aggregate: { count: '*' }
+          })),
+          // Revenue Month
+          publicDirectus.request(readItems('embarques', {
+            filter: {
+              status: { _eq: 'delivered' },
+              actual_arrival_time: { _gte: startOfMonth.toISOString() }
+            },
+            aggregate: { sum: 'total_value' }
+          }))
+        ]);
+
+        return {
+          active: (activeShipments as any)[0]?.count || 0,
+          waiting: (waitingOffers as any)[0]?.count || 0,
+          completed: (completedToday as any)[0]?.count || 0,
+          revenue: (revenueMonth as any)[0]?.sum?.total_value || 0
+        };
+      } catch (err) {
+        console.error("Error fetching KPIs:", err);
+        return { active: 0, waiting: 0, completed: 0, revenue: 0 };
+      }
+    },
+    refetchInterval: 30000
+  });
+
   return (
     <div className="space-y-6">
       {/* Header Section */}
@@ -239,7 +292,7 @@ export const StatsDashboard = () => {
             <Truck className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">24</div>
+            <div className="text-2xl font-bold">{frotaLoading ? "..." : totalVeiculos}</div>
             <p className="text-xs text-muted-foreground">Prontos para carga</p>
           </CardContent>
         </Card>
@@ -252,7 +305,7 @@ export const StatsDashboard = () => {
             <Package className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
+            <div className="text-2xl font-bold">{kpiLoading ? "..." : kpiData?.active}</div>
             <p className="text-xs text-muted-foreground">Fretes ativos</p>
           </CardContent>
         </Card>
@@ -265,7 +318,7 @@ export const StatsDashboard = () => {
             <Clock className="h-4 w-4 text-warning" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">5</div>
+            <div className="text-2xl font-bold">{kpiLoading ? "..." : kpiData?.waiting}</div>
             <p className="text-xs text-muted-foreground">Ofertas enviadas</p>
           </CardContent>
         </Card>
@@ -278,7 +331,7 @@ export const StatsDashboard = () => {
             <CheckCircle className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">8</div>
+            <div className="text-2xl font-bold">{kpiLoading ? "..." : kpiData?.completed}</div>
             <p className="text-xs text-muted-foreground">Entregas realizadas</p>
           </CardContent>
         </Card>
@@ -291,8 +344,10 @@ export const StatsDashboard = () => {
             <DollarSign className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ 145k</div>
-            <p className="text-xs text-muted-foreground">+12% vs mês anterior</p>
+            <div className="text-2xl font-bold">
+              {kpiLoading ? "..." : (kpiData?.revenue || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
+            </div>
+            <p className="text-xs text-muted-foreground">Faturamento acumulado</p>
           </CardContent>
         </Card>
       </div>

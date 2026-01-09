@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useQuery } from "@tanstack/react-query";
 import { directus, publicDirectus } from "@/lib/directus";
 import { readItems } from "@directus/sdk";
-import { Truck, Download, Calendar, MapPin, Package, CheckCircle, Clock } from "lucide-react";
+import { Truck, Download, Calendar, MapPin, Package, CheckCircle, Clock, Copy } from "lucide-react";
 import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
@@ -16,9 +16,9 @@ export function DailyVehicleProposals() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [clientFilter, setClientFilter] = useState<string>('all');
 
-  // Fetch daily vehicle offers (matches)
-  const { data: offers, isLoading: offersLoading } = useQuery({
-    queryKey: ['daily_vehicle_offers', selectedDate, clientFilter],
+  // Fetch daily vehicle offers (REAL from availability)
+  const { data: offers = [], isLoading: offersLoading } = useQuery({
+    queryKey: ['daily_vehicle_offers_real', selectedDate, clientFilter],
     queryFn: async () => {
       try {
         const startOfDay = new Date(selectedDate);
@@ -26,47 +26,40 @@ export function DailyVehicleProposals() {
         const endOfDay = new Date(selectedDate);
         endOfDay.setHours(23, 59, 59, 999);
 
-        // Fetch matches created within the selected date
-        const data = await publicDirectus.request(readItems('vehicle_matches', {
+        // Fetch drivers who mark themselves as AVAILABLE today
+        const data = await publicDirectus.request(readItems('disponivel', {
           filter: {
             date_created: {
               _between: [startOfDay.toISOString(), endOfDay.toISOString()]
-            }
+            },
+            status: { _eq: 'disponivel' }
           },
-          fields: ['*', 'driver_id.*', 'embarque_id.*', 'driver_id.cavalo_id.*'], // Expand driver and potential shipment
+          fields: ['*', 'motorista_id.*'],
           sort: ['-date_created']
         }));
 
-        const mappedOffers = data.map((match: any) => {
-          // Logic to determine "suggested clients" - likely from the shipment (embarque) if matched, 
-          // or just placeholder if purely a proactive suggestion. 
-          // If match is linked to an embarque, the "client" is the embarque origin/destination or a client field.
-          // Let's assume embarque has client info.
-
-          const clientName = match.embarque_id?.destinatario || 'Cliente Sugerido';
-
+        const mappedOffers = data.map((item: any) => {
+          const driver = item.motorista_id;
           return {
-            id: match.id,
-            date: match.date_created,
-            driver_id: match.driver_id?.id,
-            vehicle_type: match.driver_id?.tipo_veiculo || 'N/A',
-            current_location: match.driver_id?.localizacao_atual || 'Não Informado',
-            available_at: match.date_created, // Using creation time as availability time proxy
-            compatible_products: match.factors?.compatible_products || [], // Accessing JSON factor for products if exists
-            suggested_clients: [clientName],
-            offer_status: match.status,
+            id: item.id,
+            date: item.date_created,
+            driver_id: driver?.id,
+            vehicle_type: driver?.tipo_veiculo || 'N/A',
+            current_location: item.local_disponibilidade || driver?.localizacao_atual || 'Não Informado',
+            available_at: item.data_liberacao || item.date_created,
+            compatible_products: [], // We could infer this from driver tags if available
+            suggested_clients: [], // In the future, match with client demands
+            offer_status: 'available', // It's just an available slot
             driver: {
-              name: `${match.driver_id?.nome || ''} ${match.driver_id?.sobrenome || ''}`,
-              truck_plate: match.driver_id?.placa || 'N/A',
-              status: match.driver_id?.status || 'active'
+              name: `${driver?.nome || 'Motorista'} ${driver?.sobrenome || ''}`,
+              truck_plate: driver?.placa || 'N/A',
+              phone: driver?.telefone || 'N/A',
+              status: driver?.status || 'active'
             }
           };
         });
 
-        return mappedOffers.filter((o: any) => {
-          if (clientFilter !== 'all' && !o.suggested_clients.includes(clientFilter)) return false;
-          return true;
-        });
+        return mappedOffers;
 
       } catch (err) {
         console.error("Error fetching vehicle offers:", err);
@@ -75,16 +68,10 @@ export function DailyVehicleProposals() {
     },
   });
 
-  // Get unique clients from offers
-  const availableClients = Array.from(
-    new Set(
-      offers?.flatMap(offer =>
-        Array.isArray(offer.suggested_clients)
-          ? offer.suggested_clients.map(c => String(c))
-          : []
-      ) || []
-    )
-  ).sort();
+  // Placeholder for future client filtering
+  const availableClients: string[] = [];
+
+
 
   const handleExportProposals = () => {
     if (!offers || offers.length === 0) {
@@ -93,19 +80,14 @@ export function DailyVehicleProposals() {
     }
 
     const csvContent = [
-      ['Data', 'Motorista', 'Placa', 'Tipo Veículo', 'Localização', 'Disponível Em', 'Produtos Compatíveis', 'Clientes Sugeridos', 'Status'].join(';'),
-      ...offers.map(offer => [
+      ['Data', 'Motorista', 'Placa', 'Tipo Veículo', 'Localização', 'Disponível Em'].join(';'),
+      ...offers.map((offer: any) => [
         format(new Date(offer.date), 'dd/MM/yyyy', { locale: ptBR }),
         offer.driver?.name || 'N/A',
         offer.driver?.truck_plate || 'N/A',
         offer.vehicle_type || 'N/A',
         offer.current_location || 'N/A',
         offer.available_at ? format(new Date(offer.available_at), 'dd/MM HH:mm', { locale: ptBR }) : 'Imediato',
-        Array.isArray(offer.compatible_products) ? offer.compatible_products.join(', ') : 'N/A',
-        Array.isArray(offer.suggested_clients) ? offer.suggested_clients.join(', ') : 'N/A',
-        offer.offer_status === 'pending' ? 'Pendente' :
-          offer.offer_status === 'sent' ? 'Enviado' :
-            offer.offer_status === 'accepted' ? 'Aceito' : 'Rejeitado'
       ].join(';'))
     ].join('\n');
 
@@ -118,34 +100,24 @@ export function DailyVehicleProposals() {
     toast.success("Relatório exportado com sucesso");
   };
 
+  const handleCopyProposal = (offer: any) => {
+    const text = `🚚 *Veículo Disponível*\n\n` +
+      `👤 *Motorista:* ${offer.driver.name}\n` +
+      `🚛 *Veículo:* ${offer.vehicle_type} (${offer.driver.truck_plate})\n` +
+      `📍 *Local:* ${offer.current_location}\n` +
+      `🕒 *Disponibilidade:* ${format(new Date(offer.available_at), 'dd/MM HH:mm', { locale: ptBR })}\n\n` +
+      `Interessados favor entrar em contato!`;
+
+    navigator.clipboard.writeText(text);
+    toast.success("Proposta copiada para o WhatsApp!");
+  };
+
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200';
-      case 'sent':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200';
-      case 'accepted':
-        return 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200';
-      case 'rejected':
-        return 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-200';
-    }
+    return 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200';
   };
 
   const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'Pendente';
-      case 'sent':
-        return 'Enviado';
-      case 'accepted':
-        return 'Aceito';
-      case 'rejected':
-        return 'Rejeitado';
-      default:
-        return status;
-    }
+    return 'Disponível';
   };
 
   return (
@@ -218,6 +190,13 @@ export function DailyVehicleProposals() {
                   <Badge className={getStatusColor(offer.offer_status)}>
                     {getStatusLabel(offer.offer_status)}
                   </Badge>
+                </div>
+
+                <div className="flex justify-end mb-2">
+                  <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={() => handleCopyProposal(offer)}>
+                    <Copy className="h-3 w-3" />
+                    Copiar WhatsApp
+                  </Button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">

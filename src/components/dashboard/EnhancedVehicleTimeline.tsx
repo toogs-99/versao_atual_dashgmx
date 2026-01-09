@@ -3,6 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 // import { supabase } from "@/integrations/supabase/client";
+import { directus } from "@/lib/directus";
+import { readItems } from "@directus/sdk";
 import {
   Truck,
   MapPin,
@@ -42,34 +44,58 @@ export function EnhancedVehicleTimeline() {
   const { data: journeys = [], isLoading } = useQuery({
     queryKey: ['vehicle-journeys'],
     queryFn: async () => {
-      // MOCK DATA
-      return [
-        {
-          id: 'vj1',
-          driver_id: 'd1',
-          embarque_id: 'e1',
-          departure_time: new Date(Date.now() - 7200000).toISOString(),
-          estimated_arrival: new Date(Date.now() + 3600000).toISOString(),
-          current_status: 'in_transit',
-          is_on_time: true,
-          driver: { name: 'João (MOCK)', truck_plate: 'ABC-1234', vehicle_type: 'Truck' },
-          embarque: { origin: 'São Paulo, SP', destination: 'Rio de Janeiro, RJ' },
-          route_lead_time: '5h'
-        },
-        {
-          id: 'vj2',
-          driver_id: 'd2',
-          embarque_id: 'e2',
-          departure_time: new Date(Date.now() - 108000000).toISOString(),
-          estimated_arrival: new Date(Date.now() - 3600000).toISOString(), // Atrasado
-          current_status: 'loading',
-          is_on_time: false,
-          driver: { name: 'Maria (MOCK)', truck_plate: 'XYZ-9876', vehicle_type: 'Truck' },
-          embarque: { origin: 'Belo Horizonte, MG', destination: 'São Paulo, SP' },
-          route_lead_time: '7h'
-        }
-      ] as VehicleJourney[];
+      try {
+        const response = await directus.request(readItems('embarques', {
+          filter: {
+            status: {
+              _in: ['in_transit', 'waiting_receipt', 'loading', 'unloading']
+            },
+            driver_id: {
+              _nnull: true
+            }
+          },
+          fields: [
+            'id',
+            'status',
+            'driver_id.id', 'driver_id.nome', 'driver_id.placa', 'driver_id.tipo_veiculo',
+            'origin',
+            'destination',
+            'pickup_date',
+            'delivery_window_end',
+            'estimated_arrival'
+          ],
+          sort: ['delivery_window_end']
+        }));
+
+        console.log("Timeline Active Journeys:", response);
+
+        return response.map((e: any) => ({
+          id: e.id,
+          driver_id: e.driver_id?.id,
+          embarque_id: e.id,
+          departure_time: e.pickup_date || new Date().toISOString(),
+          // Use estimated_arrival if set, otherwise fallback to delivery window end, otherwise now + 4h
+          estimated_arrival: e.estimated_arrival || e.delivery_window_end || new Date(Date.now() + 14400000).toISOString(),
+          current_status: e.status,
+          // Simple logic: if now > estimated_arrival, it's late
+          is_on_time: new Date() < new Date(e.estimated_arrival || e.delivery_window_end || Date.now() + 144000000),
+          driver: {
+            name: e.driver_id?.nome || 'Motorista',
+            truck_plate: e.driver_id?.placa || 'N/A',
+            vehicle_type: e.driver_id?.tipo_veiculo || 'Veículo'
+          },
+          embarque: {
+            origin: e.origin,
+            destination: e.destination
+          },
+          route_lead_time: 'N/A' // Could be calculated if we have created_at vs delivery_window
+        })) as VehicleJourney[];
+      } catch (error) {
+        console.error("Error fetching active journeys:", error);
+        return [];
+      }
     },
+    refetchInterval: 30000
   });
 
   const handleAddJustification = async () => {

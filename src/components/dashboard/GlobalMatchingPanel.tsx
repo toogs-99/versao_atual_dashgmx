@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { directus, publicDirectus } from "@/lib/directus";
 import { readItems } from "@directus/sdk";
 import { Truck, MapPin, Calendar, TrendingUp, ArrowRight, Package, AlertCircle } from "lucide-react";
@@ -9,10 +9,15 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useVehicleMatching } from "@/hooks/useVehicleMatching";
 
+import { assignDriver } from "@/lib/embarques";
+import { CheckCircle } from "lucide-react";
+
 export function GlobalMatchingPanel() {
   const { toast } = useToast();
   const { updateMatchStatus } = useVehicleMatching();
   const [offeringMatch, setOfferingMatch] = useState<string | null>(null);
+  const [assigningMatch, setAssigningMatch] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   // Buscar todos os embarques aguardando
   const { data: pendingEmbarques = [], isLoading: loadingEmbarques } = useQuery({
@@ -43,14 +48,7 @@ export function GlobalMatchingPanel() {
   });
 
   // Buscar matching para cada embarque
-  const { data: allMatches = [], isLoading: loadingMatches } = useQuery({
-    queryKey: ['all-vehicle-matches'],
-    queryFn: async () => {
-      // TODO: Replace with real matches fetch when table is ready and populated
-      // For now, we return empty or mock if needed, but the structure prepares for real data
-      return [];
-    },
-  });
+  const { matches: allMatches = [], isLoading: loadingMatches } = useVehicleMatching();
 
   const handleOfferMatch = async (matchId: string, embarqueId: string) => {
     setOfferingMatch(matchId);
@@ -68,6 +66,31 @@ export function GlobalMatchingPanel() {
       });
     } finally {
       setOfferingMatch(null);
+    }
+  };
+
+  const handleAssignDriver = async (embarqueId: string, driverId: string, matchId: string) => {
+    setAssigningMatch(matchId);
+    try {
+      await assignDriver(embarqueId, driverId);
+      // Update match status to accepted as well
+      await updateMatchStatus(matchId, 'accepted');
+
+      toast({
+        title: "Motorista Alocado",
+        description: "Motorista atribuído à carga com sucesso.",
+      });
+
+      // Invalidate queries to refresh the list (remove pending embarque)
+      queryClient.invalidateQueries({ queryKey: ['pending-embarques-matching'] });
+    } catch (error) {
+      toast({
+        title: "Erro na alocação",
+        description: "Não foi possível alocar o motorista.",
+        variant: "destructive",
+      });
+    } finally {
+      setAssigningMatch(null);
     }
   };
 
@@ -110,8 +133,11 @@ export function GlobalMatchingPanel() {
       </CardHeader>
       <CardContent className="space-y-6">
         {pendingEmbarques.map((embarque: any) => {
-          // Placeholder for matches filtering
-          const embarqueMatches: any[] = [];
+          // Filter matches for this specific embarque
+          const embarqueMatches = allMatches.filter((m: any) =>
+            // Handle both object and ID string cases for robustness
+            (typeof m.embarque_id === 'object' ? m.embarque_id?.id : m.embarque_id) == embarque.id
+          );
 
           return (
             <div key={embarque.id} className="border rounded-lg p-4 space-y-4 shadow-sm hover:shadow-md transition-all">
@@ -156,10 +182,69 @@ export function GlobalMatchingPanel() {
                 </div>
               </div>
 
-              {/* Matches Section Placeholder */}
+              {/* Matches Section */}
               {embarqueMatches.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-                  {/* Reuse existing match card logic when matches are available */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+                  {embarqueMatches.slice(0, 3).map((match: any, index: number) => {
+                    const isTop1 = index === 0;
+                    return (
+                      <div key={match.id} className={`border rounded-md p-3 bg-card hover:bg-accent/50 transition-colors flex flex-col gap-2 ${isTop1 ? 'border-primary/50 bg-primary/5' : ''}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">
+                              {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                            </span>
+                            <span className="font-semibold text-sm">{match.driver?.name || 'Motorista'}</span>
+                          </div>
+                          <Badge variant={match.compatibility_level === 'high' ? 'default' : 'outline'} className="text-xs">
+                            {match.compatibility_score}%
+                          </Badge>
+                        </div>
+
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <div className="flex items-center gap-1">
+                            <Truck className="h-3 w-3" />
+                            {match.driver?.truck_plate || 'N/A'}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {match.driver?.current_location || 'Loc. desconhecida'}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t mt-1 gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="h-7 text-xs flex-1"
+                            onClick={() => handleAssignDriver(embarque.id, match.driver_id.id || match.driver_id, match.id)}
+                            disabled={assigningMatch === match.id}
+                          >
+                            {assigningMatch === match.id ? "..." : (
+                              <>
+                                <CheckCircle className="h-3 w-3 mr-1" /> Alocar
+                              </>
+                            )}
+                          </Button>
+
+                          {match.status === 'suggested' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-xs flex-1"
+                              onClick={() => handleOfferMatch(match.id, embarque.id)}
+                              disabled={offeringMatch === match.id}
+                            >
+                              {offeringMatch === match.id ? "..." : "Ofertar"}
+                            </Button>
+                          )}
+                          {match.status === 'offered' && (
+                            <Badge variant="secondary" className="h-7 flex items-center justify-center flex-1">Ofertado</Badge>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="flex items-center justify-center py-6 bg-accent/5 rounded-lg border border-dashed text-sm text-muted-foreground gap-2">

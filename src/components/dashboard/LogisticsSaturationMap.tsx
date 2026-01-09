@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
-// import { supabase } from "@/integrations/supabase/client";
+import { directus } from "@/lib/directus";
+import { readItems } from "@directus/sdk";
 import { MapPin, TrendingUp, TrendingDown, Minus, Truck, Package } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -19,34 +20,63 @@ interface RegionSaturation {
 export function LogisticsSaturationMap() {
   const [selectedRegion, setSelectedRegion] = useState<RegionSaturation | null>(null);
 
-  // Fetch drivers by region
-  const { data: drivers, isLoading: driversLoading } = useQuery({
-    queryKey: ['drivers_by_region'],
+  // Helper to extract UF from string (e.g. "São Paulo - SP" -> "SP")
+  const extractState = (location: string) => {
+    if (!location) return 'N/A';
+    const match = location.match(/[-,\/]\s*([A-Z]{2})\b/i);
+    return match ? match[1].toUpperCase() : 'N/A';
+  };
+
+  // Fetch drivers by region (REAL)
+  const { data: drivers = [], isLoading: driversLoading } = useQuery({
+    queryKey: ['drivers_by_region_real'],
     queryFn: async () => {
-      // MOCK DATA
-      return [
-        { state: 'SP', current_location: 'São Paulo', availability_status: 'available' },
-        { state: 'SP', current_location: 'Campinas', availability_status: 'available' },
-        { state: 'MG', current_location: 'Belo Horizonte', availability_status: 'available' },
-        { state: 'PR', current_location: 'Curitiba', availability_status: 'available' },
-        { state: 'SC', current_location: 'Joinville', availability_status: 'available' },
-        { state: 'RS', current_location: 'Porto Alegre', availability_status: 'available' },
-        { state: 'RJ', current_location: 'Rio de Janeiro', availability_status: 'available' },
-      ];
+      try {
+        // Fetch all available drivers
+        const response = await directus.request(readItems('disponivel', {
+          filter: { status: { _eq: 'disponivel' } },
+          fields: ['id', 'local_disponibilidade', 'status'],
+          sort: ['-date_created'],
+          limit: 100
+        }));
+
+        // Map to internal structure
+        return response.map((d: any) => ({
+          id: d.id,
+          state: extractState(d.local_disponibilidade),
+          current_location: d.local_disponibilidade || 'Desconhecido',
+          availability_status: 'available'
+        }));
+      } catch (err) {
+        console.error("Error fetching map drivers:", err);
+        return [];
+      }
     },
   });
 
-  // Fetch pending shipments by region
-  const { data: shipments, isLoading: shipmentsLoading } = useQuery({
-    queryKey: ['shipments_by_region'],
+  // Fetch pending shipments by region (REAL)
+  const { data: shipments = [], isLoading: shipmentsLoading } = useQuery({
+    queryKey: ['shipments_by_region_real'],
     queryFn: async () => {
-      // MOCK DATA
-      return [
-        { origin: 'SP', destination: 'MG', status: 'new', route_states: 'SP, MG' },
-        { origin: 'SP', destination: 'PR', status: 'pending', route_states: 'SP, PR' },
-        { origin: 'MG', destination: 'BA', status: 'pending', route_states: 'MG, BA' },
-        { origin: 'PR', destination: 'SC', status: 'new', route_states: 'PR, SC' },
-      ];
+      try {
+        const response = await directus.request(readItems('embarques', {
+          filter: {
+            status: { _in: ['new', 'waiting_confirmation'] }
+          },
+          fields: ['id', 'origin', 'destination', 'status'],
+          limit: 100
+        }));
+
+        return response.map((s: any) => ({
+          id: s.id,
+          origin_state: extractState(s.origin),
+          destination_state: extractState(s.destination),
+          status: s.status
+        }));
+      } catch (err) {
+        console.error("Error fetching map shipments:", err);
+        return [];
+      }
     },
   });
 
@@ -57,8 +87,8 @@ export function LogisticsSaturationMap() {
     const regions: Record<string, RegionSaturation> = {};
 
     // Count available vehicles by state
-    drivers.forEach((driver) => {
-      if (!driver.state) return;
+    drivers.forEach((driver: any) => {
+      if (!driver.state || driver.state === 'N/A') return;
 
       if (!regions[driver.state]) {
         regions[driver.state] = {
@@ -70,32 +100,25 @@ export function LogisticsSaturationMap() {
           saturationScore: 0,
         };
       }
-
-      if (driver.availability_status === 'available') {
-        regions[driver.state].availableVehicles++;
-      }
+      regions[driver.state].availableVehicles++;
     });
 
-    // Count pending shipments by state
-    shipments.forEach((shipment) => {
-      const states = shipment.route_states?.split(',').map(s => s.trim()) || [];
+    // Count pending shipments by ORIGIN state (demand is where the cargo IS)
+    shipments.forEach((shipment: any) => {
+      const state = shipment.origin_state;
+      if (!state || state === 'N/A') return;
 
-      states.forEach((state) => {
-        if (!state) return;
-
-        if (!regions[state]) {
-          regions[state] = {
-            region: state,
-            state: state,
-            availableVehicles: 0,
-            pendingShipments: 0,
-            saturationLevel: 'balanced',
-            saturationScore: 0,
-          };
-        }
-
-        regions[state].pendingShipments++;
-      });
+      if (!regions[state]) {
+        regions[state] = {
+          region: state,
+          state: state,
+          availableVehicles: 0,
+          pendingShipments: 0,
+          saturationLevel: 'balanced',
+          saturationScore: 0,
+        };
+      }
+      regions[state].pendingShipments++;
     });
 
     // Calculate saturation level
