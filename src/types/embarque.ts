@@ -1,6 +1,6 @@
 import { Database } from "@/integrations/supabase/types";
 
-export type EmbarqueStatus = 
+export type EmbarqueStatus =
   | 'new'
   | 'needs_attention'
   | 'sent'
@@ -98,10 +98,10 @@ export function transformEmbarqueToCard(embarque: Embarque): ShipmentCard {
     cargo: embarque.cargo_type || 'Carga não especificada',
     value: Number(embarque.total_value) || 0,
     deadline: embarque.pickup_date ? new Date(embarque.pickup_date) : new Date(),
-    driver: embarque.driver_id ? {
-      id: embarque.driver_id,
-      name: 'Motorista' // Will be fetched separately
-    } : undefined,
+    driver: (embarque as any).driver ? (embarque as any).driver : (embarque.driver_id ? {
+      id: String(embarque.driver_id),
+      name: 'Motorista' // Fallback
+    } : undefined),
     rejected_drivers_count: embarque.rejected_drivers_count || 0,
     delivery_window: embarque.delivery_window_start && embarque.delivery_window_end
       ? `${new Date(embarque.delivery_window_start).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} - ${new Date(embarque.delivery_window_end).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`

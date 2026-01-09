@@ -1,83 +1,81 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useOperationalAlerts } from "@/hooks/useOperationalAlerts";
-import { useEmbarques } from "@/hooks/useEmbarques";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, ArrowRight, Package, Truck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-// import { supabase } from "@/integrations/supabase/client";
+import { directus, publicDirectus } from "@/lib/directus";
+import { readItems } from "@directus/sdk";
+import { useOperationalAlerts } from "@/hooks/useOperationalAlerts";
 import {
-  AlertTriangle,
-  Clock,
-  FileText,
-  UserX,
-  CheckCircle2,
-  AlertCircle,
-  Wrench,
-  Ban
-} from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function CriticalPendencies() {
   const { criticalAlerts, highAlerts, resolveAlert } = useOperationalAlerts();
-  const { embarques } = useEmbarques();
-  const { toast } = useToast();
   const [selectedAlert, setSelectedAlert] = useState<any>(null);
+  const { toast } = useToast();
 
-  // Buscar motoristas inativos
-  const { data: inactiveDrivers = [] } = useQuery({
-    queryKey: ['inactive-drivers'],
+  const { data: immediateActions = [], isLoading: loadingActions } = useQuery({
+    queryKey: ['immediate-actions'],
     queryFn: async () => {
-      // MOCK DATA
-      return []; // No inactive drivers for mock
+      try {
+        const response = await publicDirectus.request(readItems('embarques', {
+          filter: {
+            status: {
+              _in: ['needs_attention', 'waiting_confirmation']
+            }
+          },
+          fields: ['id', 'status', 'origin', 'destination', 'cargo_type', 'date_created', 'client_name'],
+          sort: ['-date_created'],
+          limit: 10
+        }));
+        return response;
+      } catch (error) {
+        console.error("Error fetching immediate actions:", error);
+        return [];
+      }
     },
+    refetchInterval: 30000
   });
 
-  // Calculate critical metrics
-  const shipmentsNoResponse = embarques.filter(e =>
-    e.status === 'new' &&
-    new Date(e.created_at).getTime() < Date.now() - 5 * 60 * 60 * 1000
-  );
+  const handleResolveAlert = async () => {
+    if (!selectedAlert) return;
 
-  const shipmentsNoDocuments = embarques.filter(e =>
-    ['in_transit', 'completed'].includes(e.status) &&
-    !e.delivery_date
-  );
-
-  const handleResolveAlert = async (alertId: string) => {
-    try {
-      await resolveAlert(alertId);
-      toast({
-        title: "Alerta resolvido",
-        description: "O alerta foi marcado como resolvido com sucesso.",
-      });
-      setSelectedAlert(null);
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível resolver o alerta.",
-        variant: "destructive",
-      });
-    }
+    await resolveAlert(selectedAlert.id);
+    toast({
+      title: "Alerta resolvido",
+      description: "O alerta foi marcado como resolvido.",
+    });
+    setSelectedAlert(null);
   };
 
-  const getPriorityColor = (severity: string) => {
-    switch (severity) {
-      case 'critical': return 'destructive';
-      case 'high': return 'default';
-      case 'medium': return 'secondary';
-      default: return 'outline';
-    }
-  };
+  if (loadingActions) {
+    return <div className="p-8 text-center text-muted-foreground animate-pulse">Carregando ações imediatas...</div>;
+  }
 
-  const getPriorityIcon = (severity: string) => {
-    switch (severity) {
-      case 'critical': return <AlertCircle className="h-4 w-4" />;
-      case 'high': return <AlertTriangle className="h-4 w-4" />;
-      default: return <Clock className="h-4 w-4" />;
-    }
-  };
+  if (immediateActions.length === 0) {
+    return (
+      <Card className="border-destructive/20 bg-destructive/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="h-5 w-5" />
+            Ações Imediatas
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="py-8 text-center">
+          <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-500 opacity-50" />
+          <p className="font-semibold text-green-600">Tudo em dia! Nenhuma ação imediata necessária.</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <>
@@ -85,161 +83,92 @@ export function CriticalPendencies() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-destructive">
             <AlertTriangle className="h-5 w-5" />
-            Pendências Críticas - Ação Imediata
+            Ações Imediatas
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Cargas sem aceite */}
-          {shipmentsNoResponse.length > 0 && (
-            <div className="flex items-center justify-between p-4 bg-background rounded-lg border border-destructive/20">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
-                  <Clock className="h-5 w-5 text-destructive" />
+          {immediateActions.map((action: any) => (
+            <div
+              key={action.id}
+              className="flex items-start justify-between p-3 bg-background rounded-lg border border-destructive/20 shadow-sm"
+            >
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-destructive">
+                    {action.client_name || 'Cliente Desconhecido'}
+                  </span>
+                  <Badge variant="destructive" className="text-[10px]">
+                    {action.status === 'needs_attention' ? 'Verificação Necessária' : 'Aguardando Confirmação'}
+                  </Badge>
                 </div>
-                <div>
-                  <p className="font-semibold text-destructive">
-                    {shipmentsNoResponse.length} Cargas sem aceite há &gt; 5h
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Risco de No-Show aumentado
-                  </p>
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  <span>{action.origin}</span>
+                  <ArrowRight className="h-3 w-3" />
+                  <span>{action.destination}</span>
                 </div>
+                {action.cargo_type && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Package className="h-3 w-3" />
+                    <span>{action.cargo_type}</span>
+                  </div>
+                )}
               </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => {
-                  toast({
-                    title: "Cargas sem aceite",
-                    description: shipmentsNoResponse.map(e => `${e.origin} → ${e.destination}`).join(', '),
-                  });
-                }}>
-                  Ver Lista
-                </Button>
-                <Button size="sm" variant="destructive" onClick={() => {
-                  toast({
-                    title: "Matching acionado",
-                    description: "Gerando sugestões automáticas para as cargas pendentes",
-                  });
-                }}>
-                  Acionar Matching
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Documentos pendentes */}
-          {shipmentsNoDocuments.length > 0 && (
-            <div className="flex items-center justify-between p-4 bg-background rounded-lg border border-orange-500/20">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-orange-500/10 flex items-center justify-center">
-                  <FileText className="h-5 w-5 text-orange-500" />
-                </div>
-                <div>
-                  <p className="font-semibold text-orange-600">
-                    {shipmentsNoDocuments.length} CT-es pendentes de canhoto
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Documentação incompleta
-                  </p>
-                </div>
-              </div>
-              <Button size="sm" variant="outline">
-                Revisar Documentos
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => toast({ title: "Detalhes", description: "Funcionalidade de detalhes em breve." })}
+              >
+                Ver Detalhes
               </Button>
             </div>
-          )}
-
-          {/* Alertas Críticos */}
-          {criticalAlerts.map((alert) => (
-            <div
-              key={alert.id}
-              className="flex items-center justify-between p-4 bg-background rounded-lg border border-destructive/20 cursor-pointer hover:bg-accent/50"
-              onClick={() => setSelectedAlert(alert)}
-            >
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
-                  {getPriorityIcon(alert.severity)}
-                </div>
-                <div>
-                  <p className="font-semibold text-destructive">
-                    {alert.title}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {alert.description}
-                  </p>
-                </div>
-              </div>
-              <Badge variant={getPriorityColor(alert.severity)}>
-                {alert.severity.toUpperCase()}
-              </Badge>
-            </div>
           ))}
-
-          {/* Alertas de Alta Prioridade */}
-          {highAlerts.slice(0, 3).map((alert) => (
-            <div
-              key={alert.id}
-              className="flex items-center justify-between p-4 bg-background rounded-lg border border-orange-500/20 cursor-pointer hover:bg-accent/50"
-              onClick={() => setSelectedAlert(alert)}
-            >
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-orange-500/10 flex items-center justify-center">
-                  {getPriorityIcon(alert.severity)}
-                </div>
-                <div>
-                  <p className="font-semibold text-orange-600">
-                    {alert.title}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {alert.description}
-                  </p>
-                </div>
-              </div>
-              <Badge variant={getPriorityColor(alert.severity)}>
-                {alert.severity.toUpperCase()}
-              </Badge>
-            </div>
-          ))}
-
-          {criticalAlerts.length === 0 && highAlerts.length === 0 && shipmentsNoResponse.length === 0 && shipmentsNoDocuments.length === 0 && (
-            <div className="flex items-center justify-center p-4 bg-muted/10 rounded-lg border border-border/40 gap-3">
-              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-              <span className="text-sm font-medium text-muted-foreground">Tudo em ordem! Nenhuma pendência crítica no momento.</span>
-            </div>
-          )}
         </CardContent>
       </Card>
 
-      {/* Alert Details Dialog */}
-      <Dialog open={!!selectedAlert} onOpenChange={() => setSelectedAlert(null)}>
+      <Dialog open={!!selectedAlert} onOpenChange={(open) => !open && setSelectedAlert(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {selectedAlert && getPriorityIcon(selectedAlert.severity)}
-              {selectedAlert?.title}
-            </DialogTitle>
+            <DialogTitle>Resolvendo Alerta</DialogTitle>
+            <DialogDescription>
+              Confirme se deseja marcar este alerta como resolvido.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm font-semibold mb-1">Descrição:</p>
-              <p className="text-sm text-muted-foreground">{selectedAlert?.description}</p>
-            </div>
-            {selectedAlert?.action_required && (
-              <div>
-                <p className="text-sm font-semibold mb-1">Ação Necessária:</p>
-                <p className="text-sm text-muted-foreground">{selectedAlert.action_required}</p>
+          <div className="py-4">
+            {selectedAlert && (
+              <div className="space-y-2">
+                <p><strong>Tipo:</strong> {selectedAlert.type}</p>
+                <p><strong>Mensagem:</strong> {selectedAlert.message}</p>
               </div>
             )}
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setSelectedAlert(null)}>
-                Fechar
-              </Button>
-              <Button onClick={() => selectedAlert && handleResolveAlert(selectedAlert.id)}>
-                Marcar como Resolvido
-              </Button>
-            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setSelectedAlert(null)}>Cancelar</Button>
+            <Button onClick={handleResolveAlert}>Confirmar Resolução</Button>
           </div>
         </DialogContent>
       </Dialog>
     </>
   );
+}
+
+// Helper component for empty state icon
+function CheckCircle({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+      <polyline points="22 4 12 14.01 9 11.01" />
+    </svg>
+  )
 }

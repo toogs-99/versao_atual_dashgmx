@@ -27,7 +27,7 @@ export function useOperationalAlerts() {
     queryFn: async () => {
       try {
         const data = await directus.request(readItems('operational_alerts', {
-          sort: ['-created_at' as any] // Using system created_at as date field wasn't explicit in my script but Directus adds it by default
+          sort: ['-date_created' as any]
         }));
         return data as unknown as OperationalAlert[];
       } catch (err) {

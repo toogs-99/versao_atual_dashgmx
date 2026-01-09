@@ -39,7 +39,7 @@ export function RealTimeMap() {
         .select('*, vehicle_journeys!inner(*)')
         .not('current_location', 'is', null)
         .in('vehicle_journeys.current_status', ['loading', 'in_transit', 'unloading']);
-      
+
       if (error) throw error;
       return (data || []) as DriverWithJourney[];
     },
@@ -54,7 +54,7 @@ export function RealTimeMap() {
         .from('embarques')
         .select('*')
         .in('status', ['in_transit', 'in_progress', 'loading', 'dispatched', 'new']);
-      
+
       if (error) throw error;
       return (data || []) as ActiveEmbarque[];
     },
@@ -68,7 +68,7 @@ export function RealTimeMap() {
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
-        table: 'drivers',
+        table: 'cadastro_motorista',
       }, () => {
         queryClient.invalidateQueries({ queryKey: ['active-drivers'] });
       })
@@ -100,21 +100,21 @@ export function RealTimeMap() {
       // Parse current_location se for string "lat,lng" ou "cidade, estado"
       let lat = -15.7801; // Centro do Brasil (fallback)
       let lng = -47.9292;
-      
+
       if (driver.current_location) {
         const parts = driver.current_location.split(',').map(s => s.trim());
         const parsedLat = parseFloat(parts[0]);
         const parsedLng = parseFloat(parts[1]);
-        
+
         if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
           lat = parsedLat;
           lng = parsedLng;
         }
       }
-      
+
       const journey = driver.vehicle_journeys[0];
       let journeyInfo = '';
-      
+
       if (journey) {
         journeyInfo = `\nStatus: ${journey.current_status}`;
         if (journey.estimated_arrival) {
@@ -122,7 +122,7 @@ export function RealTimeMap() {
           journeyInfo += `\nETA: ${eta.toLocaleDateString()} ${eta.toLocaleTimeString()}`;
         }
       }
-      
+
       return {
         id: driver.id,
         position: [lat, lng] as [number, number],
@@ -154,42 +154,42 @@ export function RealTimeMap() {
         'Recife': [-8.0476, -34.8770],
         'Fortaleza': [-3.7172, -38.5433],
       };
-      
+
       // Tentar encontrar coordenadas da origem
       let originCoords: [number, number] = [-15.7801, -47.9292]; // Centro do Brasil
-      const originCity = Object.keys(cityCoords).find(city => 
+      const originCity = Object.keys(cityCoords).find(city =>
         embarque.origin.toLowerCase().includes(city.toLowerCase())
       );
       if (originCity) {
         originCoords = cityCoords[originCity];
       }
-      
+
       // Tentar encontrar coordenadas do destino
       let destCoords: [number, number] = [-15.7801, -47.9292];
-      const destCity = Object.keys(cityCoords).find(city => 
+      const destCity = Object.keys(cityCoords).find(city =>
         embarque.destination?.toLowerCase().includes(city.toLowerCase())
       );
       if (destCity) {
         destCoords = cityCoords[destCity];
       }
-      
+
       // Se tiver posição atual do embarque, usar como ponto intermediário
       const positions: [number, number][] = [originCoords];
-      
+
       if (embarque.current_latitude && embarque.current_longitude) {
         positions.push([embarque.current_latitude, embarque.current_longitude]);
       }
-      
+
       if (embarque.destination) {
         positions.push(destCoords);
       }
-      
+
       const statusColors: Record<string, string> = {
         'in_progress': 'blue',
         'loading': 'orange',
         'dispatched': 'purple',
       };
-      
+
       return {
         id: embarque.id,
         positions,
@@ -226,7 +226,7 @@ export function RealTimeMap() {
           </div>
         </div>
       </div>
-      
+
       <AdvancedMap
         center={[-15.7801, -47.9292]}
         zoom={5}

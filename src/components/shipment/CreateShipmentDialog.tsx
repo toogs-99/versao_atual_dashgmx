@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { createEmbarque } from "@/lib/embarques";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface CreateShipmentDialogProps {
   open: boolean;
@@ -17,6 +18,7 @@ interface CreateShipmentDialogProps {
 export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [formData, setFormData] = useState({
     origin: "",
@@ -65,6 +67,9 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
         title: "Embarque criado!",
         description: "Nova oferta de frete criada com sucesso.",
       });
+
+      // Refresh the board immediately
+      queryClient.invalidateQueries({ queryKey: ['embarques'] });
 
       // Reset form
       setFormData({

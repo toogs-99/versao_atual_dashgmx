@@ -105,7 +105,7 @@ export function RouteAnalyticsModal({ open, onOpenChange, route, product }: Rout
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-            <TabsTrigger value="drivers">Motoristas</TabsTrigger>
+            <TabsTrigger value="cadastro_motorista">Motoristas</TabsTrigger>
             <TabsTrigger value="shipments">Embarques</TabsTrigger>
             <TabsTrigger value="metrics">Métricas</TabsTrigger>
           </TabsList>
@@ -184,11 +184,11 @@ export function RouteAnalyticsModal({ open, onOpenChange, route, product }: Rout
                       {analytics.profitability_score.toFixed(1)}
                     </div>
                     <div className="flex-1">
-                        <div className="h-2 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-primary transition-all"
-                            style={{ width: `${Math.min(Number(analytics.profitability_score || 0) * 10, 100)}%` }}
-                          />
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary transition-all"
+                          style={{ width: `${Math.min(Number(analytics.profitability_score || 0) * 10, 100)}%` }}
+                        />
                       </div>
                       <p className="text-sm text-muted-foreground mt-2">
                         Baseado em receita, lead time e taxa de sucesso
@@ -200,8 +200,8 @@ export function RouteAnalyticsModal({ open, onOpenChange, route, product }: Rout
             )}
           </TabsContent>
 
-          <TabsContent value="drivers" className="space-y-4">
-            <Card>
+          <TabsContent value="cadastro_motorista" className="space-y-4">
+            <h4 className="font-semibold mb-2">Motoristas Ativos na Rota</h4><Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Truck className="h-5 w-5" />
@@ -266,9 +266,9 @@ export function RouteAnalyticsModal({ open, onOpenChange, route, product }: Rout
                             </p>
                           </div>
                           <Badge variant={shipment.status === 'new' ? 'default' : 'secondary'}>
-                            {shipment.status === 'new' ? 'Novo' : 
-                             shipment.status === 'pending' ? 'Pendente' : 
-                             'Aguardando'}
+                            {shipment.status === 'new' ? 'Novo' :
+                              shipment.status === 'pending' ? 'Pendente' :
+                                'Aguardando'}
                           </Badge>
                         </div>
                         {shipment.cargo_type && (

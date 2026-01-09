@@ -18,6 +18,13 @@ const getDirectusUrl = () => {
 
 export const directusUrl = getDirectusUrl();
 
+// Use authentication() to allow dynamic user login and auto-refresh
 export const directus = createDirectus(directusUrl)
-    .with(authentication())
+    .with(authentication('json', { autoRefresh: true }))
     .with(rest());
+
+// Client for public/anonymous access (Dashboard stats, etc.)
+// Relies on public permissions being set on the collections
+export const publicDirectus = createDirectus(
+    import.meta.env.VITE_DIRECTUS_URL || "http://91.99.137.101:8057"
+).with(rest());

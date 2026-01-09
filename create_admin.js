@@ -1,7 +1,7 @@
 
 import http from 'http';
 
-const TOKEN = '1nuqaAuhjy-3bURuLhfu5o5JbLHLO4Ah';
+const TOKEN = 'HM5fQ_PdQKtU95SStnyosF7RY_gnRuYo';
 const HOST = '91.99.137.101';
 const PORT = 8057;
 

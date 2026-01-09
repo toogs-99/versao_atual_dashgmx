@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
-import { directus } from "@/lib/directus";
+import { directus, publicDirectus } from "@/lib/directus";
 import { readItems } from "@directus/sdk";
 import { Truck, Download, Calendar, MapPin, Package, CheckCircle, Clock } from "lucide-react";
 import { useState } from "react";
@@ -27,14 +27,14 @@ export function DailyVehicleProposals() {
         endOfDay.setHours(23, 59, 59, 999);
 
         // Fetch matches created within the selected date
-        const data = await directus.request(readItems('vehicle_matches', {
+        const data = await publicDirectus.request(readItems('vehicle_matches', {
           filter: {
-            created_at: {
+            date_created: {
               _between: [startOfDay.toISOString(), endOfDay.toISOString()]
             }
           },
-          fields: ['*', 'driver_id.*', 'embarque_id.*', 'driver_id.cavadlo_id.*'], // Expand driver and potential shipment
-          sort: ['-created_at']
+          fields: ['*', 'driver_id.*', 'embarque_id.*', 'driver_id.cavalo_id.*'], // Expand driver and potential shipment
+          sort: ['-date_created']
         }));
 
         const mappedOffers = data.map((match: any) => {
@@ -47,11 +47,11 @@ export function DailyVehicleProposals() {
 
           return {
             id: match.id,
-            date: match.created_at,
+            date: match.date_created,
             driver_id: match.driver_id?.id,
             vehicle_type: match.driver_id?.tipo_veiculo || 'N/A',
             current_location: match.driver_id?.localizacao_atual || 'Não Informado',
-            available_at: match.created_at, // Using creation time as availability time proxy
+            available_at: match.date_created, // Using creation time as availability time proxy
             compatible_products: match.factors?.compatible_products || [], // Accessing JSON factor for products if exists
             suggested_clients: [clientName],
             offer_status: match.status,

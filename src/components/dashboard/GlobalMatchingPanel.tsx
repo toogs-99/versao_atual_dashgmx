@@ -2,8 +2,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-// import { supabase } from "@/integrations/supabase/client";
-import { Truck, MapPin, Calendar, TrendingUp, ArrowRight, Package } from "lucide-react";
+import { directus, publicDirectus } from "@/lib/directus";
+import { readItems } from "@directus/sdk";
+import { Truck, MapPin, Calendar, TrendingUp, ArrowRight, Package, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useVehicleMatching } from "@/hooks/useVehicleMatching";
@@ -17,49 +18,37 @@ export function GlobalMatchingPanel() {
   const { data: pendingEmbarques = [], isLoading: loadingEmbarques } = useQuery({
     queryKey: ['pending-embarques-matching'],
     queryFn: async () => {
-      // MOCK DATA
-      return [
-        {
-          id: 'e1',
-          client_name: 'Cliente Mock',
-          status: 'new',
-          origin: 'São Paulo, SP',
-          destination: 'Curitiba, PR',
-          delivery_date: new Date().toISOString()
-        }
-      ];
+      try {
+        const response = await publicDirectus.request(readItems('embarques', {
+          filter: {
+            driver_id: {
+              _null: true
+            },
+            status: {
+              _nin: ['delivered', 'cancelled', 'no_show']
+            }
+          },
+          fields: ['id', 'status', 'origin', 'destination', 'delivery_window_end', 'client_name', 'cargo_type'],
+          sort: ['-date_created'],
+          limit: 20
+        }));
+        console.log("Global Matching Pendings:", response);
+        return response;
+      } catch (error) {
+        console.error("Error fetching pending embarques for matching:", error);
+        return [];
+      }
     },
+    refetchInterval: 30000
   });
 
   // Buscar matching para cada embarque
   const { data: allMatches = [], isLoading: loadingMatches } = useQuery({
     queryKey: ['all-vehicle-matches'],
     queryFn: async () => {
-      // MOCK DATA
-      return [
-        {
-          id: 'm1',
-          embarque_id: 'e1',
-          driver_id: 'd1',
-          compatibility_score: 95,
-          compatibility_level: 'high',
-          factors: { location_match: true, equipment_compatible: true },
-          status: 'suggested',
-          driver: { name: 'João (MOCK)', truck_plate: 'ABC-1234' },
-          embarque: {}
-        },
-        {
-          id: 'm2',
-          embarque_id: 'e1',
-          driver_id: 'd2',
-          compatibility_score: 80,
-          compatibility_level: 'medium',
-          factors: { equipment_compatible: true },
-          status: 'suggested',
-          driver: { name: 'Pedro (MOCK)', truck_plate: 'XYZ-5678' },
-          embarque: {}
-        }
-      ];
+      // TODO: Replace with real matches fetch when table is ready and populated
+      // For now, we return empty or mock if needed, but the structure prepares for real data
+      return [];
     },
   });
 
@@ -83,55 +72,15 @@ export function GlobalMatchingPanel() {
   };
 
   const handleOfferAllMatches = async (embarqueId: string) => {
-    const embarqueMatches = allMatches.filter(m => m.embarque_id === embarqueId && m.status === 'suggested');
-
-    try {
-      for (const match of embarqueMatches) {
-        await updateMatchStatus(match.id, 'offered');
-      }
-      toast({
-        title: "Ofertas enviadas",
-        description: `${embarqueMatches.length} ofertas foram enviadas com sucesso.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível enviar todas as ofertas.",
-        variant: "destructive",
-      });
-    }
+    // Logic placeholder
+    toast({
+      title: "Funcionalidade em desenvolvimento",
+      description: "Em breve disparará ofertas para todos os matches sugeridos.",
+    });
   };
 
-  const getCompatibilityBadge = (level: string, score: number) => {
-    const config: Record<string, any> = {
-      high: { icon: '🟢', variant: 'default', label: 'Alta' },
-      medium: { icon: '🟡', variant: 'secondary', label: 'Média' },
-      low: { icon: '🔴', variant: 'outline', label: 'Baixa' },
-    };
-    const { icon, variant, label } = config[level] || config.low;
-    return (
-      <Badge variant={variant} className="gap-1">
-        <span>{icon}</span>
-        <span>{score}% {label}</span>
-      </Badge>
-    );
-  };
-
-  const getFactorsList = (factors: any) => {
-    if (!factors) return [];
-
-    const factorsList = [];
-    if (factors.location_match) factorsList.push({ icon: '✅', text: 'Mesma região (retorno eficiente)' });
-    if (factors.equipment_compatible) factorsList.push({ icon: '✅', text: 'Equipamento compatível' });
-    if (factors.available_soon) factorsList.push({ icon: '✅', text: `Disponível em breve` });
-    if (factors.gr_approved) factorsList.push({ icon: '✅', text: 'GR Aprovada' });
-    if (!factors.client_history) factorsList.push({ icon: '⚠️', text: 'Sem histórico com este cliente' });
-
-    return factorsList;
-  };
-
-  if (loadingEmbarques || loadingMatches) {
-    return <div className="p-8 text-center">Carregando matching automático...</div>;
+  if (loadingEmbarques) {
+    return <div className="p-8 text-center text-muted-foreground animate-pulse">Carregando painel de matching...</div>;
   }
 
   if (pendingEmbarques.length === 0) {
@@ -141,7 +90,7 @@ export function GlobalMatchingPanel() {
           <Package className="h-12 w-12 mx-auto mb-2 text-green-500 opacity-50" />
           <p className="font-semibold text-green-600">Nenhum embarque aguardando matching</p>
           <p className="text-sm text-muted-foreground mt-1">
-            Todas as cargas foram atribuídas ou estão em andamento
+            Todas as cargas foram atribuídas ou estão concluídas
           </p>
         </CardContent>
       </Card>
@@ -152,110 +101,70 @@ export function GlobalMatchingPanel() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <TrendingUp className="h-5 w-5" />
-          Matching Automático Global - {pendingEmbarques.length} Cargas Aguardando
+          <TrendingUp className="h-5 w-5 text-primary" />
+          Matching Automático Global - {pendingEmbarques.length} Cargas Sem Motorista
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Veículos sugeridos automaticamente com base em compatibilidade, localização e disponibilidade
+          Veículos sugeridos automaticamente para cargas pendentes de alocação de motorista
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
-        {pendingEmbarques.map((embarque) => {
-          const embarqueMatches = allMatches
-            .filter(m => m.embarque_id === embarque.id)
-            .slice(0, 3); // Top 3 sugestões
+        {pendingEmbarques.map((embarque: any) => {
+          // Placeholder for matches filtering
+          const embarqueMatches: any[] = [];
 
           return (
-            <div key={embarque.id} className="border rounded-lg p-4 space-y-4">
+            <div key={embarque.id} className="border rounded-lg p-4 space-y-4 shadow-sm hover:shadow-md transition-all">
               {/* Embarque Info */}
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-lg">{embarque.client_name || 'Cliente não especificado'}</h3>
-                    <Badge variant={embarque.status === 'new' ? 'destructive' : 'secondary'}>
-                      {embarque.status === 'new' ? 'Novo' : 'Aguardando Resposta'}
+              <div className="flex flex-col md:flex-row items-start justify-between gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <h3 className="font-semibold text-lg">{embarque.client_name || 'Cliente não informado'}</h3>
+                    <Badge variant={embarque.status === 'needs_attention' ? 'destructive' : 'outline'} className={embarque.status === 'waiting_confirmation' ? 'bg-amber-500 hover:bg-amber-600 text-white border-transparent' : ''}>
+                      {embarque.status === 'needs_attention' ? 'Verificação Necessária' :
+                        embarque.status === 'waiting_confirmation' ? 'Aguardando Confirmação GMX' :
+                          embarque.status === 'new' ? 'Novo' : embarque.status}
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4" />
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1 bg-muted/50 px-2 py-1 rounded">
+                      <MapPin className="h-3.5 w-3.5" />
                       <span>{embarque.origin}</span>
-                      <ArrowRight className="h-4 w-4" />
+                      <ArrowRight className="h-3.5 w-3.5" />
                       <span>{embarque.destination}</span>
                     </div>
-                    {embarque.delivery_date && (
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        <span>{new Date(embarque.delivery_date).toLocaleDateString()}</span>
+                    {embarque.delivery_window_end && (
+                      <div className="flex items-center gap-1 bg-muted/50 px-2 py-1 rounded">
+                        <Calendar className="h-3.5 w-3.5" />
+                        <span>{new Date(embarque.delivery_window_end).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                    {embarque.cargo_type && (
+                      <div className="flex items-center gap-1 bg-muted/50 px-2 py-1 rounded">
+                        <Package className="h-3.5 w-3.5" />
+                        <span>{embarque.cargo_type}</span>
                       </div>
                     )}
                   </div>
                 </div>
-                {embarqueMatches.length > 0 && (
-                  <Button
-                    size="sm"
-                    onClick={() => handleOfferAllMatches(embarque.id)}
-                    disabled={!embarqueMatches.some(m => m.status === 'suggested')}
-                  >
-                    Ofertar para Todos ({embarqueMatches.length})
+
+                {/* Action Area */}
+                <div className="flex gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => handleOfferAllMatches(embarque.id)}>
+                    Buscar Veículos Compatíveis
                   </Button>
-                )}
+                </div>
               </div>
 
-              {/* Veículos Sugeridos */}
+              {/* Matches Section Placeholder */}
               {embarqueMatches.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {embarqueMatches.map((match) => (
-                    <div
-                      key={match.id}
-                      className="border rounded-lg p-3 space-y-2 bg-accent/20 hover:bg-accent/40 transition-colors"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2">
-                          <Truck className="h-4 w-4 text-primary" />
-                          <div>
-                            <p className="font-semibold text-sm">{match.driver?.name}</p>
-                            <p className="text-xs text-muted-foreground">{match.driver?.truck_plate}</p>
-                          </div>
-                        </div>
-                        {getCompatibilityBadge(match.compatibility_level, Math.round(match.compatibility_score))}
-                      </div>
-
-                      {/* Fatores de Compatibilidade */}
-                      <div className="space-y-1">
-                        {getFactorsList(match.factors).map((factor, idx) => (
-                          <div key={idx} className="flex items-start gap-2 text-xs">
-                            <span>{factor.icon}</span>
-                            <span className="text-muted-foreground">{factor.text}</span>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Status e Ação */}
-                      <div className="pt-2 border-t">
-                        {match.status === 'suggested' ? (
-                          <Button
-                            size="sm"
-                            className="w-full"
-                            onClick={() => handleOfferMatch(match.id, embarque.id)}
-                            disabled={offeringMatch === match.id}
-                          >
-                            {offeringMatch === match.id ? 'Enviando...' : 'Ofertar'}
-                          </Button>
-                        ) : (
-                          <Badge variant="default" className="w-full justify-center">
-                            Oferta Enviada
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                  {/* Reuse existing match card logic when matches are available */}
                 </div>
               ) : (
-                <div className="text-center py-4 text-sm text-muted-foreground">
-                  <Truck className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                  <p>Nenhum veículo sugerido ainda</p>
-                  <p className="text-xs">Execute o matching automático para gerar sugestões</p>
+                <div className="flex items-center justify-center py-6 bg-accent/5 rounded-lg border border-dashed text-sm text-muted-foreground gap-2">
+                  <Truck className="h-4 w-4 opacity-50" />
+                  <p>Ainda não há veículos compatíveis sugeridos para esta rota.</p>
                 </div>
               )}
             </div>

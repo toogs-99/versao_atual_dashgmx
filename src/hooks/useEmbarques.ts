@@ -1,7 +1,7 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { directus } from "@/lib/directus";
-import { readItems } from "@directus/sdk";
+import { readItems, updateItem } from "@directus/sdk";
 import { useEffect } from "react";
 import { Embarque, EmbarqueStatus, transformEmbarqueToCard } from "@/types/embarque";
 
@@ -13,23 +13,33 @@ export function useEmbarques() {
     queryFn: async () => {
       try {
         const response = await directus.request(readItems('embarques', {
-          fields: ['*', 'driver_id.*'],
-          sort: ['-created_at' as any]
+          fields: ['*', 'driver_id.*']
+          // sort: ['-date_created'] // Removido pois causa erro de permissão. Ordenação feita no cliente.
         }));
 
-        return response.map((item: any) => ({
+        const items = response.map((item: any) => ({
           ...item,
+          // Mapeia date_created do Directus para created_at da aplicação
+          // Fallback para pickup_date ou data atual se não existir date_created
+          created_at: item.date_created || item.pickup_date || new Date().toISOString(),
+          // Garante que o ID seja uma string
+          id: String(item.id),
           driver: item.driver_id ? {
             id: item.driver_id.id,
-            name: item.driver_id.nome // Assuming 'nome' is the field for driver name
-          } : undefined
+            name: item.driver_id.name || item.driver_id.nome || 'Motorista'
+          } : undefined,
+          // Normaliza driver_id para string se for objeto
+          driver_id: typeof item.driver_id === 'object' ? item.driver_id?.id : item.driver_id
         })) as any[];
+
+        // Ordenação Client-side (do mais recente para o mais antigo)
+        return items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       } catch (err) {
         console.error("Error fetching embarques:", err);
         throw err;
       }
     },
-
+    refetchInterval: 5000,
   });
 
   // Realtime subscription removed for mock mode
@@ -45,10 +55,51 @@ export function useEmbarques() {
     return acc;
   }, {} as Record<EmbarqueStatus, ReturnType<typeof transformEmbarqueToCard>[]>);
 
+  // Mutation for updating status with Optimistic Updates
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, newStatus }: { id: string, newStatus: EmbarqueStatus }) => {
+      await directus.request(updateItem('embarques', id, {
+        status: newStatus
+      }));
+      return { id, newStatus };
+    },
+    // When mutate is called:
+    onMutate: async ({ id, newStatus }) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: ['embarques'] });
+
+      // Snapshot the previous value
+      const previousEmbarques = queryClient.getQueryData<any[]>(['embarques']);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(['embarques'], (old: any[] = []) => {
+        return old.map((item) =>
+          item.id === id ? { ...item, status: newStatus } : item
+        );
+      });
+
+      // Return a context object with the snapshotted value
+      return { previousEmbarques };
+    },
+    // If the mutation fails, use the context returned from onMutate to roll back
+    onError: (err, newTodo, context) => {
+      if (context?.previousEmbarques) {
+        queryClient.setQueryData(['embarques'], context.previousEmbarques);
+      }
+      console.error("Error updating status:", err);
+    },
+    // Always refetch after error or success:
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['embarques'] });
+    },
+  });
+
   return {
     embarques,
     embarquesByStatus,
     isLoading,
-    error
+    error,
+    updateStatus: (id: string, newStatus: EmbarqueStatus) =>
+      updateStatusMutation.mutateAsync({ id, newStatus })
   };
 }

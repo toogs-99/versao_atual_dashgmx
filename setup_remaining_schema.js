@@ -4,7 +4,7 @@ import http from 'http';
 const CONFIG = {
     hostname: '91.99.137.101',
     port: 8057,
-    token: '1nuqaAuhjy-3bURuLhfu5o5JbLHLO4Ah'
+    token: 'HM5fQ_PdQKtU95SStnyosF7RY_gnRuYo'
 };
 
 const COLLECTIONS = [
