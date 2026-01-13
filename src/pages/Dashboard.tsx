@@ -14,6 +14,7 @@ import { DailyVehicleProposals } from "@/components/dashboard/DailyVehiclePropos
 import { CriticalPendencies } from "@/components/dashboard/CriticalPendencies";
 import { GlobalMatchingPanel } from "@/components/dashboard/GlobalMatchingPanel";
 import { DebugLogViewer } from "@/components/dashboard/DebugLogViewer";
+import { CriticalAlertsPanel } from "@/components/dashboard/CriticalAlertsPanel";
 import { useOperatorHeartbeat } from "@/hooks/useOperatorHeartbeat";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -29,7 +30,8 @@ import {
   Activity,
   Book,
   LogOut,
-  User as UserIcon
+  User as UserIcon,
+  AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -74,6 +76,7 @@ const Dashboard = () => {
 
   const allTabs = [
     { id: 'stats', label: 'Dashboard', icon: BarChart3, perm: 'dashboard' },
+    { id: 'alerts', label: 'Alertas', icon: AlertTriangle, perm: 'dashboard' },
     { id: 'registry', label: 'Cadastros', icon: Users, perm: 'cadastros' },
     { id: 'available', label: 'Disponíveis', icon: UserCheck, perm: 'disponiveis' },
     { id: 'shipments', label: 'Embarques', icon: Package, perm: 'embarques' },
@@ -204,6 +207,12 @@ const Dashboard = () => {
                   <EnhancedVehicleTimeline />
                   <LogisticsSaturationMap />
                   <DailyVehicleProposals />
+                </TabsContent>
+              )}
+
+              {activeTab === 'alerts' && hasPermission('dashboard') && (
+                <TabsContent value="alerts" className="space-y-6 mt-0">
+                  <CriticalAlertsPanel />
                 </TabsContent>
               )}
 

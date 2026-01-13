@@ -324,35 +324,51 @@ export const UserManagement = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="role">Cargo / Função</Label>
+                <Label htmlFor="role">Cargo / Função (Opcional)</Label>
                 <Select
                   value={formData.role}
                   onValueChange={(value) => handleFormChange("role", value)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione um cargo" />
+                    <SelectValue placeholder="Selecione um cargo (ou 'Sem Cargo')" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">Sem Cargo (Personalizado)</SelectItem>
                     {roles.map(role => (
                       <SelectItem key={role.id} value={role.name}>{role.name}</SelectItem>
                     ))}
-                    <SelectItem value="personalizado">Personalizado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Permissões (Preenchidas automaticamente pelo cargo)</Label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-muted/20 p-4 rounded-md">
+              <div className="flex items-center justify-between">
+                <Label>Permissões</Label>
+                {/* Visual Indicator of Role Status */}
+                {formData.role && formData.role !== 'none' && (
+                  <Badge variant={
+                    JSON.stringify((selectedPermissions["new"] || getPermissionsForRoleName(formData.role)).sort()) === JSON.stringify(getPermissionsForRoleName(formData.role).sort())
+                      ? "outline"
+                      : "secondary"
+                  } className="text-xs">
+                    {JSON.stringify((selectedPermissions["new"] || getPermissionsForRoleName(formData.role)).sort()) === JSON.stringify(getPermissionsForRoleName(formData.role).sort())
+                      ? `Padrão: ${formData.role}`
+                      : "Personalizado (Divergente do Cargo)"}
+                  </Badge>
+                )}
+              </div>
+
+              <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 bg-muted/20 p-4 rounded-md ${formData.role && formData.role !== 'none' && JSON.stringify((selectedPermissions["new"] || getPermissionsForRoleName(formData.role)).sort()) !== JSON.stringify(getPermissionsForRoleName(formData.role).sort()) ? "border border-amber-500/50" : ""}`}>
                 {permissionsList.map((permission) => (
                   <div key={permission.id} className="flex items-center space-x-2">
                     <Checkbox
                       id={`new-${permission.id}`}
-                      // Check if override exists, else check role default
-                      checked={selectedPermissions["new"]
-                        ? selectedPermissions["new"].includes(permission.id)
-                        : getPermissionsForRoleName(formData.role).includes(permission.id)
+                      // Check logic: If "new" overrides exist, use them. Else if role exists, use role defaults. Else empty.
+                      checked={
+                        selectedPermissions["new"]
+                          ? selectedPermissions["new"].includes(permission.id)
+                          : (formData.role && formData.role !== 'none' ? getPermissionsForRoleName(formData.role).includes(permission.id) : false)
                       }
                       onCheckedChange={() => togglePermission("new", permission.id)}
                     />

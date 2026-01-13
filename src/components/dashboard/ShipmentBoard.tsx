@@ -271,10 +271,19 @@ export const ShipmentBoard = () => {
   };
 
   const handleConfirmGMX = async (shipment: any) => {
-    toast({
-      title: "GMX Confirmado (MOCK)",
-      description: `Embarque #${shipment.id} confirmado com sucesso!`,
-    });
+    try {
+      await updateStatus(shipment.id, 'confirmed');
+      toast({
+        title: "GMX Confirmado",
+        description: `Embarque #${shipment.id} movido para Confirmados.`,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao confirmar",
+        description: "Não foi possível atualizar o status."
+      });
+    }
   };
 
   const handleStartRide = async (shipment: any) => {
@@ -290,10 +299,19 @@ export const ShipmentBoard = () => {
   };
 
   const startRide = async (shipment: any) => {
-    toast({
-      title: "Corrida Iniciada (MOCK)",
-      description: `Embarque #${shipment.id} iniciado com sucesso!`,
-    });
+    try {
+      await updateStatus(shipment.id, 'in_transit');
+      toast({
+        title: "Corrida Iniciada",
+        description: `Embarque #${shipment.id} agora está Em Trânsito.`,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao iniciar",
+        description: "Não foi possível atualizar o status."
+      });
+    }
   };
 
   const handleForceStart = async () => {
